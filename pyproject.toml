@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mentoros"
+version = "0.1.0"
+description = "AI tutor that never forgets — an event-sourced learning engine where the profile is always computed from immutable events, never stored."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Samgar" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+mentoros = "mentoros.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mentoros"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local state — events are the source of truth, profile.json is a regenerable cache
+*.profile.json
+data/*.events.jsonl
+.env
+.DS_Store
