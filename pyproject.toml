@@ -13,7 +13,9 @@ authors = [{ name = "Samgar" }]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4"]
+dev = ["pytest>=7.4", "httpx>=0.27"]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+postgres = ["psycopg[binary]>=3.1"]
 
 [project.scripts]
 mentoros = "mentoros.cli:main"
