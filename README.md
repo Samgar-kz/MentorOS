@@ -76,6 +76,22 @@ The web app reads/writes through the API (override its base URL with
 `NEXT_PUBLIC_API_URL`). To move the event log from JSONL to PostgreSQL, install
 `.[postgres]` and back the API with `PostgresEventStore` — same append-only contract.
 
+## AI chat (memory-aware, model-agnostic)
+
+Three endpoints, one rule — **the model never decides facts**:
+
+- `POST /chat` — builds the prompt from the *computed* profile + today's queue, asks
+  the tutor, then runs the model's proposed events through the **writeback engine**:
+  objective outcomes become facts (appended to the log), guesses become hypotheses
+  (Layer B, never in the log). The profile is then recomputed.
+- `POST /events` — append a deterministic event directly.
+- `GET /profile` — the computed profile.
+
+The tutor sits behind an `AITutor` seam: `OpenAITutor` when `OPENAI_API_KEY` is set
+(`pip install '.[ai]'`), otherwise an offline `StubTutor` so `/chat` still works.
+Swap in a Claude/Gemini tutor and nothing else changes — all memory lives in
+MentorOS, not in the model.
+
 ## Architecture
 
 ```
