@@ -54,6 +54,21 @@ queue = build_review_queue(profile.vocabulary, profile.generated_ts)
 `build_profile` is order-independent: it replays events in timestamp order, so the
 same history always yields the same profile (tested).
 
+## Run the full stack (API + web)
+
+```bash
+# 1. Backend — event-sourced API over the core
+pip install -e ".[api]"
+uvicorn mentoros.api:app --reload          # http://localhost:8000  (docs at /docs)
+
+# 2. Frontend — Next.js daily-flow UI
+cd web && npm install && npm run dev        # http://localhost:3000
+```
+
+The web app reads/writes through the API (override its base URL with
+`NEXT_PUBLIC_API_URL`). To move the event log from JSONL to PostgreSQL, install
+`.[postgres]` and back the API with `PostgresEventStore` — same append-only contract.
+
 ## Architecture
 
 ```
