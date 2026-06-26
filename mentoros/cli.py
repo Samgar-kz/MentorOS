@@ -12,6 +12,7 @@ recomputed from that log on every command.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import uuid
 from pathlib import Path
@@ -78,6 +79,27 @@ def _cmd_session(args) -> int:
     return 0
 
 
+def _cmd_seed(args) -> int:
+    store = _store(args)
+    existing = {w.word for w in build_profile(store.read_all()).vocabulary}
+    words = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    added = 0
+    for entry in words:
+        if entry["word"] in existing:
+            continue  # idempotent: never re-add a word already in the log
+        store.record(
+            WORD_ADDED,
+            {
+                "word": entry["word"],
+                "meaning": entry.get("meaning", ""),
+                "difficulty": int(entry.get("difficulty", 1)),
+            },
+        )
+        added += 1
+    print(f"seeded {added} new word(s); {len(words) - added} already present")
+    return 0
+
+
 def _cmd_profile(args) -> int:
     store = _store(args)
     profile = build_profile(store.read_all())
@@ -116,6 +138,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     pr = sub.add_parser("profile", help="Rebuild and show the profile")
     pr.set_defaults(func=_cmd_profile)
+
+    sd = sub.add_parser("seed", help="Load words from a JSON file (idempotent)")
+    sd.add_argument("--file", default="data/seed/toefl_academic.json")
+    sd.set_defaults(func=_cmd_seed)
 
     se = sub.add_parser("session", help="Record a study session")
     se.add_argument("action", choices=["start", "finish"])

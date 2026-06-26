@@ -17,6 +17,7 @@ events  ──►  build_profile()  ──►  profile.json   (a regenerable cac
 
 ## Principles
 
+0. **Usage beats architecture** — every change must increase the chance you open MentorOS tomorrow; if not, it waits. Outranks even YAGNI.
 1. **Facts only** — no numbers "from the model's head"; all state reconstructs from history.
 2. **History is immutable** — events are append-only; you never edit the past.
 3. **Everything is computed** — the profile is always rebuilt from events.
@@ -56,14 +57,20 @@ same history always yields the same profile (tested).
 
 ## Run the full stack (API + web)
 
-```bash
-# 1. Backend — event-sourced API over the core
-pip install -e ".[api]"
-uvicorn mentoros.api:app --reload          # http://localhost:8000  (docs at /docs)
+One command — it bootstraps dependencies on first run, then starts both servers:
 
-# 2. Frontend — Next.js daily-flow UI
-cd web && npm install && npm run dev        # http://localhost:3000
+```bash
+make dev          # API → http://localhost:8000 (/docs) · web → http://localhost:3000
+make seed         # load the academic word list into your local store (once)
 ```
+
+<details><summary>…or run the pieces by hand</summary>
+
+```bash
+pip install -e ".[api]" && uvicorn mentoros.api:app --reload   # backend
+cd web && npm install && npm run dev                           # frontend
+```
+</details>
 
 The web app reads/writes through the API (override its base URL with
 `NEXT_PUBLIC_API_URL`). To move the event log from JSONL to PostgreSQL, install

@@ -15,6 +15,12 @@ No extra features. No assumptions without evidence. No magic.
 
 ## Core principles (non-negotiable)
 
+**Rule 0 — Usage beats architecture.** Every change must answer one question:
+*"Does it increase the chance I open MentorOS tomorrow morning, without a reminder?"*
+If the answer is no, the change waits. This rule outranks the others (even YAGNI):
+it ties every engineering decision to the only goal that matters — daily use. The
+next best feature is often *not writing a feature* but checking whether it's needed.
+
 **Rule 1 — Facts only.** The source of truth is verifiable facts. There are no
 percentages "from the model's head". Any state can be reconstructed from the
 history of events.
