@@ -17,6 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from mentoros.events import (
+    ASSESSMENT_COMPLETED,
+    GRAMMAR_QUESTION,
+    PLACEMENT_PASSED,
     SESSION_FINISHED,
     SESSION_STARTED,
     WORD_ADDED,
@@ -81,6 +84,15 @@ class EventIn(BaseModel):
     payload: dict = {}
 
 
+class TopicAnswerIn(BaseModel):
+    topic: str
+    correct: bool
+
+
+class PlacementIn(BaseModel):
+    known_levels: list[str] = []  # CEFR levels the student already knows, e.g. ["A1","A2","B1"]
+
+
 class ChatIn(BaseModel):
     message: str
     goal: str = "TOEFL 100"
@@ -119,6 +131,63 @@ def review(store: EventStore = Depends(get_store)) -> dict:
     profile = build_profile(store.read_all())
     queue = build_review_queue(profile.vocabulary, profile.generated_ts)
     return {"count": len(queue), "queue": [_word_dict(w) for w in queue]}
+
+
+@app.get("/level")
+def level(store: EventStore = Depends(get_store)) -> dict:
+    """Computed level estimate (Rule 5: projected from answers, never stored)."""
+    from mentoros.assess import assess
+
+    return assess(build_profile(store.read_all())).to_dict()
+
+
+@app.get("/plan")
+def plan(store: EventStore = Depends(get_store)) -> dict:
+    """Today's plan — recomputed from events + the curriculum graph (Rule 5)."""
+    from mentoros.planner import plan_today
+
+    return plan_today(store.read_all()).to_dict()
+
+
+@app.get("/topics")
+def topics(store: EventStore = Depends(get_store)) -> dict:
+    """Every curriculum topic with its computed status (locked/available/learning/mastered)."""
+    from dataclasses import asdict
+
+    from mentoros.curriculum import load_curriculum
+    from mentoros.planner import build_topic_states
+
+    states = build_topic_states(store.read_all(), load_curriculum())
+    return {"topics": [asdict(s) for s in states.values()]}
+
+
+@app.post("/topics/answer")
+def topic_answer(body: TopicAnswerIn, store: EventStore = Depends(get_store)) -> dict:
+    """Record a grammar-topic outcome — a fact (Rule 1), folded into topic mastery."""
+    e = store.record(GRAMMAR_QUESTION, body.model_dump())
+    return {"recorded": e.id, "topic": body.topic, "correct": body.correct}
+
+
+@app.post("/placement")
+def placement(body: PlacementIn, store: EventStore = Depends(get_store)) -> dict:
+    """Place the student by level: every topic in a known level (and its foundations)
+    becomes mastered via placement facts — so the plan starts where they already are,
+    not at A1. Recomputed like everything else; a later wrong answer can resurface a
+    placed topic (Rule 5)."""
+    from mentoros.curriculum import CEFR_ORDER, load_curriculum
+
+    known = set(body.known_levels)
+    curriculum = load_curriculum()
+    passed = [t for t in curriculum.topics if t.level in known]
+    for t in passed:
+        store.record(PLACEMENT_PASSED, {"topic": t.id, "level": t.level})
+
+    # The level check is now complete — record it as a fact, with the level it found.
+    ranked = sorted(known, key=lambda lv: CEFR_ORDER.get(lv, -1))
+    level = ranked[-1] if ranked else "A1"
+    store.record(ASSESSMENT_COMPLETED, {"level": level, "known_levels": sorted(known)})
+
+    return {"known_levels": sorted(known), "placed": [t.id for t in passed], "level": level}
 
 
 @app.get("/profile")
@@ -167,10 +236,15 @@ def chat(
     its proposed events through the writeback engine — facts to the log, hypotheses
     to Layer B — and recompute the profile. The model never edits the truth."""
     from mentoros.ai import build_prompt, writeback
+    from mentoros.planner import plan_today
 
-    profile = build_profile(store.read_all())
+    events = store.read_all()
+    profile = build_profile(events)
     queue = build_review_queue(profile.vocabulary, profile.generated_ts)
-    result = tutor.respond(build_prompt(profile, queue, body.message, body.goal))
+    focus = plan_today(events).focus  # the Planner chooses the topic; the model just teaches it
+    result = tutor.respond(
+        build_prompt(profile, queue, body.message, body.goal, focus_topic=focus[0] if focus else None)
+    )
 
     facts, hypotheses = writeback(result.events)
     for f in facts:

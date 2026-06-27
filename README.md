@@ -22,6 +22,7 @@ events  ──►  build_profile()  ──►  profile.json   (a regenerable cac
 2. **History is immutable** — events are append-only; you never edit the past.
 3. **Everything is computed** — the profile is always rebuilt from events.
 4. **AI never changes facts** — AI only forms hypotheses (V2+); it is never a source of truth.
+5. **The plan is computed, not stored** — no "150-day plan" file to patch; the plan, the level, today's lesson are all recomputed from `events + curriculum_graph`, like the review queue. (Rule 3 applied to the planner.)
 
 ## Quickstart (V1 — deterministic core, no DB/web/AI)
 
@@ -107,9 +108,15 @@ it is fully testable with no DB, web, or AI. The DB / API / frontend wrap it nex
 
 ## Roadmap
 
-- **V1 (now):** Vocabulary · Review Queue · Events · Profile Generator · Session History.
-- **V2:** Grammar · Layer B (hypotheses) · Writing · Reading · Listening.
-- **V3:** Speaking · Voice · Adaptive Conversations.
+Layers are gated by **usage, not time** — each is a set of projections over an
+unchanged core, never a rewrite. See [SPEC.md](SPEC.md#roadmap--the-gate) for the gate.
+
+- **Core v1 (done):** Event Store · Profile Projection · Review Queue · AI Teacher (chat) · Deterministic Memory.
+- **Planner v2 (built):** Curriculum Graph (`data/curriculum/`) · `assess(events)` · `build_topic_states(...)` · `build_plan(...)` · `next_action(...)` · **onboarding** (new users check their level first → plan starts at that level, not A1; `POST /placement`) · `GET /plan`. The system decides what to teach today; the plan is **computed, not stored** (Rule 5).
+- **Teacher v3 (gated — 14 days of self-driven use first):** Voice · Writing / Speaking / Reading / Listening coaches. *Goal: a full personal teacher.*
+
+The LLM lives only in the Teacher seam — swapping OpenAI → Claude → anything else
+changes only that layer; memory, profile, plan, review, and diagnostics are untouched.
 
 ## Success metric
 

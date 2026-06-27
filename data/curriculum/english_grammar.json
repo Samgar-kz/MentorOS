@@ -1,0 +1,27 @@
+{
+  "name": "English grammar (A1–C1, TOEFL track)",
+  "version": 1,
+  "topics": [
+    { "id": "nouns_articles",       "title": "Nouns & Articles",                 "level": "A1", "skill": "grammar", "requires": [] },
+    { "id": "present_simple",       "title": "Present Simple",                    "level": "A1", "skill": "grammar", "requires": [] },
+    { "id": "present_continuous",   "title": "Present Continuous",                "level": "A2", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "past_simple",          "title": "Past Simple",                       "level": "A2", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "future_forms",         "title": "Future Forms (will / going to)",    "level": "A2", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "countable_uncountable","title": "Countable & Uncountable Nouns",     "level": "A2", "skill": "grammar", "requires": ["nouns_articles"] },
+    { "id": "comparatives",         "title": "Comparatives & Superlatives",       "level": "A2", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "present_perfect",      "title": "Present Perfect",                    "level": "B1", "skill": "grammar", "requires": ["past_simple", "present_continuous"] },
+    { "id": "modals",               "title": "Modal Verbs",                       "level": "B1", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "conditionals_1_2",     "title": "First & Second Conditionals",       "level": "B1", "skill": "grammar", "requires": ["past_simple", "future_forms"] },
+    { "id": "passive_voice",        "title": "Passive Voice",                     "level": "B1", "skill": "grammar", "requires": ["past_simple"] },
+    { "id": "relative_clauses",     "title": "Relative Clauses",                  "level": "B1", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "gerunds_infinitives",  "title": "Gerunds & Infinitives",            "level": "B1", "skill": "grammar", "requires": ["present_simple"] },
+    { "id": "reported_speech",      "title": "Reported Speech",                   "level": "B2", "skill": "grammar", "requires": ["past_simple", "present_perfect"] },
+    { "id": "past_perfect",         "title": "Past Perfect",                      "level": "B2", "skill": "grammar", "requires": ["present_perfect"] },
+    { "id": "conditionals_3_mixed", "title": "Third & Mixed Conditionals",        "level": "B2", "skill": "grammar", "requires": ["conditionals_1_2", "past_perfect"] },
+    { "id": "complex_noun_phrases", "title": "Complex Noun Phrases",              "level": "B2", "skill": "grammar", "requires": ["relative_clauses", "countable_uncountable"] },
+    { "id": "advanced_passives",    "title": "Advanced Passive Constructions",    "level": "B2", "skill": "grammar", "requires": ["passive_voice", "reported_speech"] },
+    { "id": "inversion",            "title": "Inversion & Emphasis",              "level": "C1", "skill": "grammar", "requires": ["conditionals_3_mixed"] },
+    { "id": "discourse_markers",    "title": "Cohesion & Discourse Markers",      "level": "C1", "skill": "grammar", "requires": ["complex_noun_phrases"] },
+    { "id": "nominalization",       "title": "Nominalization (Academic Style)",   "level": "C1", "skill": "grammar", "requires": ["complex_noun_phrases"] }
+  ]
+}

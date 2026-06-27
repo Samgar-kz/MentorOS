@@ -40,6 +40,13 @@ events  ──►  build_profile()  ──►  profile.json
 hypothesis becomes a fact only after objective confirmation; it never auto-promotes
 into the deterministic Layer A.
 
+**Rule 5 — The plan is computed, not stored.** There is no "150-day plan" file that
+we create once and then keep patching. The plan, the student's level, the next
+lesson — all of it is recomputed every morning from `events + curriculum_graph`,
+exactly like the review queue. The plan "adapts" not because we edit it, but because
+it never existed as stored state. This is Rule 3 applied to the planner — named
+separately because the planner is where the temptation to store state is strongest.
+
 ---
 
 ## Architecture (target)
@@ -58,6 +65,43 @@ OpenAI API          # explanations / examples / generation only (never source of
 
 V1 implements the **deterministic core** (the bottom of this stack, minus the AI):
 pure Python, no DB/web/AI required, fully testable. The DB, API, and frontend wrap it.
+
+---
+
+## The Planner (V2) — four pure functions, not four modules
+
+The "personal teacher" is **not** four big stateful modules. It is four functions on
+top of the existing core. Three of them contain no AI at all — they are projections,
+like `build_review_queue`:
+
+```python
+profile = assess(events)                                   # level is computed, never stored
+graph   = curriculum_graph                                 # static topic DAG (A1 → C1), versioned data
+lesson  = build_plan(profile, graph, review_queue, today)  # today's plan, rebuilt every morning
+action  = next_action(profile, lesson, review_queue)       # "what helps most right now?"
+```
+
+- **`assess`** — the level (`Grammar: B1+`) is a *projection* of answers, not a fact the
+  AI writes (Rule 1 + 4). A diagnostic is just a series of `*_answered` events.
+- **`curriculum_graph`** — the one genuinely new piece of data: topics A1 → C1 and their
+  dependencies. A static, versioned file, like the vocabulary seed. Almost never changes.
+- **`build_plan` / `next_action`** — pure functions. No stored plan (Rule 5).
+- **Placement** — a `placement_passed` *event* records the levels a student already
+  knows; `build_topic_states` then treats those topics (and their prerequisites) as
+  mastered, so the plan starts where the student is, not at A1. The placement is a
+  *fact* (Rule 1), not a stored flag, and it is self-correcting: a later wrong answer
+  on a placed topic resets its box and resurfaces it (Rule 5).
+- **Onboarding gate** — a new student does the level check *first*. Finishing it
+  records an `assessment_completed` fact; only then is the plan shown. "Onboarded" and
+  the found CEFR level are computed from events, never stored. Flow:
+  *check level → know level → plan is created.*
+
+**The LLM lives only in the Teacher** — the seam that turns today's plan into an actual
+explanation. It receives `{today's topic, weak spots, recent mistakes, explanation level}`
+and teaches; the only facts it produces are objective outcomes (answers). Because all
+memory lives in MentorOS and not in the model, **swapping OpenAI → Claude → anything else
+changes only the Teacher.** Memory, profile, plan, review, and diagnostics are untouched.
+That is what makes the architecture durable.
 
 ---
 
@@ -100,11 +144,27 @@ No extra steps.
 
 ---
 
-## Scope
+## Roadmap & the gate
 
-- **V1 (this milestone):** Vocabulary · Review Queue · Events · Profile Generator · Session History.
-- **V2:** Grammar · Layer B (hypotheses) · Writing · Reading · Listening.
-- **V3:** Speaking · Voice · Adaptive Conversations.
+The layers are gated by **usage, not time** (Rule 0). Each layer is a set of
+projections on top of an unchanged core — never a rewrite.
+
+- **Core v1 — *done*.** Event Store · Profile Projection · Review Queue · AI Teacher
+  (chat) · Deterministic Memory.
+- **Planner v2 — *built*.** Curriculum Graph (`data/curriculum/`) · `assess(events)` ·
+  `build_topic_states(...)` · `build_plan(...)` · `next_action(...)` · `GET /plan`.
+  The system itself decides what to teach today; the Teacher only teaches the chosen
+  topic. *(Built ahead of the usage gate by explicit request — the gate now guards v3.)*
+- **Teacher v3 — *gated*.** Voice · Writing / Speaking / Reading / Listening coaches.
+  **Goal: turn the Planner into a full personal teacher.**
+
+**The gate (before v3):** after **14 days**, answer one question —
+*"Did I open MentorOS on my own, without reminders?"*
+
+- **Yes** → build the next layer.
+- **No** → do **not** add features. Find out why the desire to open it disappeared.
+  A bigger plan won't fix a loop that isn't pulling you back; it will only hide the
+  problem behind complexity.
 
 ---
 

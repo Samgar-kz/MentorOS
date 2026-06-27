@@ -58,3 +58,23 @@ def test_sessions_start_and_finish(client):
     prof = client.get("/profile").json()
     assert len(prof["sessions"]) == 1
     assert prof["sessions"][0]["duration_s"] == 600.0
+
+
+def test_plan_starts_at_a1_then_placement_lifts_it(client):
+    # Fresh: not onboarded yet; plan starts at the A1 roots, nothing mastered.
+    plan = client.get("/plan").json()
+    assert plan["onboarded"] is False
+    assert plan["cefr_level"] is None
+    assert plan["topics_mastered"] == 0
+    assert {f["level"] for f in plan["focus"]} == {"A1"}
+
+    # Place the student at A1+A2: lower topics become known, focus moves up to B1.
+    placed = client.post("/placement", json={"known_levels": ["A1", "A2"]}).json()
+    assert len(placed["placed"]) > 0
+    assert placed["level"] == "A2"
+
+    plan2 = client.get("/plan").json()
+    assert plan2["onboarded"] is True  # the level check is done -> plan unlocked
+    assert plan2["cefr_level"] == "A2"
+    assert plan2["topics_mastered"] == len(placed["placed"])
+    assert all(f["level"] != "A1" for f in plan2["focus"])

@@ -58,9 +58,11 @@ export default function Home() {
     <main>
       <h1>MentorOS</h1>
       <p style={{ color: "#666", marginTop: -8 }}>The next most useful step, today.</p>
-      <p style={{ marginTop: -4 }}>
-        <Link href="/chat" style={{ color: "#06c" }}>Open chat with your tutor →</Link>
-      </p>
+      <div style={{ display: "flex", gap: 8, margin: "12px 0 20px", flexWrap: "wrap" }}>
+        <Link href="/plan" style={navBtn("#0a7")}>Today&apos;s plan</Link>
+        <Link href="/placement" style={navBtn("#444")}>Check your level</Link>
+        <Link href="/chat" style={navBtn("#06c")}>Chat with tutor</Link>
+      </div>
 
       {error && (
         <p style={{ background: "#fff3f3", color: "#a00", padding: 12, borderRadius: 8 }}>{error}</p>
@@ -147,4 +149,13 @@ const btn = (bg) => ({
   marginLeft: 6,
   cursor: "pointer",
   fontSize: 14,
+});
+
+const navBtn = (bg) => ({
+  background: bg,
+  color: "#fff",
+  borderRadius: 8,
+  padding: "10px 16px",
+  fontSize: 15,
+  textDecoration: "none",
 });

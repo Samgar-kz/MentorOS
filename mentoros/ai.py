@@ -53,14 +53,35 @@ class AITutor(Protocol):
     def respond(self, prompt: str) -> AIResult: ...
 
 
-def build_prompt(profile: Profile, queue: list[WordState], message: str, goal: str = "TOEFL 100") -> str:
-    """Compose the per-turn context from computed state only (no stored chat history)."""
+def build_prompt(
+    profile: Profile,
+    queue: list[WordState],
+    message: str,
+    goal: str = "TOEFL 100",
+    focus_topic: dict | None = None,
+) -> str:
+    """Compose the per-turn context from computed state only (no stored chat history).
+
+    ``focus_topic`` is chosen by the Planner (not the model): the tutor teaches the
+    topic MentorOS picked. When it quizzes the student it must tag the outcome with
+    that topic's id so the result folds back into topic mastery (Rule 4 writeback).
+    """
     due = ", ".join(w.word for w in queue[:8]) or "(none)"
+    focus_line = ""
+    if focus_topic:
+        focus_line = (
+            f"Today's focus topic (chosen by MentorOS, teach THIS): "
+            f"{focus_topic['title']} ({focus_topic['level']}).\n"
+            f"When you quiz the student and the outcome is clear, emit a grammar_question "
+            f'event: {{"type":"grammar_question","payload":{{"topic":"{focus_topic["id"]}",'
+            f'"correct":true|false}}}}.\n'
+        )
     return (
         f"Student goal: {goal}\n"
         f"Vocabulary: {profile.word_count} words, {profile.mastered_count} mastered, "
         f"{profile.due_count} due today.\n"
-        f"Today's review: {due}\n\n"
+        f"Today's review: {due}\n"
+        f"{focus_line}\n"
         f"Student says: {message}"
     )
 
