@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 // Use 127.0.0.1 (not "localhost"): on macOS localhost resolves to ::1 (IPv6) first,
@@ -57,6 +58,9 @@ export default function Home() {
     <main>
       <h1>MentorOS</h1>
       <p style={{ color: "#666", marginTop: -8 }}>The next most useful step, today.</p>
+      <p style={{ marginTop: -4 }}>
+        <Link href="/chat" style={{ color: "#06c" }}>Open chat with your tutor →</Link>
+      </p>
 
       {error && (
         <p style={{ background: "#fff3f3", color: "#a00", padding: 12, borderRadius: 8 }}>{error}</p>
