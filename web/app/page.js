@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Use 127.0.0.1 (not "localhost"): on macOS localhost resolves to ::1 (IPv6) first,
+// but uvicorn binds IPv4 — a browser fetch to localhost:8000 would hit ::1 and fail.
+const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
   const [queue, setQueue] = useState([]);
