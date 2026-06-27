@@ -17,5 +17,6 @@ htmlcov/
 # Local state — events are the source of truth, profile.json is a regenerable cache
 *.profile.json
 data/*.events.jsonl
+data/*.hypotheses.jsonl
 .env
 .DS_Store
