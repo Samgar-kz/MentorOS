@@ -15,7 +15,7 @@ from pathlib import Path
 
 DEFAULT_PATH = (
     Path(__file__).resolve().parent.parent.parent
-    / "data" / "assessment" / "grammar_prototype.json"
+    / "data" / "assessment" / "grammar.json"
 )
 
 

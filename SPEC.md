@@ -194,8 +194,10 @@ layer is gated by **usage, not time** (Rule 0).
   coverage + review) · stop-by-confidence · session is event-sourced (asked questions
   derived from events) · `POST /assessment/start` + `/assessment/answer` grade server-side
   and feed the Knowledge Projection. Doesn't touch the core — it just produces
-  higher-quality events. *Prototype = 20 hand-picked grammar items; full v2 needs a much
-  larger bank (a tiny bank can't cover enough of the graph to lock a CEFR level — by design).*
+  higher-quality events. *Bank: 110 items covering all 21 grammar topics (~6 each at
+  A1–B1 so a topic can lock, ~4 at B2–C1); AI-authored, needs human review. With enough
+  evidence the CEFR projection now locks (e.g. all A1+A2 correct → A2). Next: a "narrowing"
+  selector + per-skill cap so a single run hones in on the level boundary (CAT-style).*
 - **🚧 Teacher v3 — *the real personal teacher*.** Consumes Knowledge Projection +
   Planner + today's lesson; explains, questions, adapts, gives examples, corrects.
   Makes **no architectural decisions** — uses what the system already computed.

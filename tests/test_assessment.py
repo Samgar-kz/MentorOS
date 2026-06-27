@@ -21,7 +21,7 @@ CUR = load_curriculum()
 
 # --- question bank ---------------------------------------------------------- #
 def test_bank_loads_and_is_well_formed():
-    assert len(BANK) == 20
+    assert len(BANK) >= 100
     ids = [q.id for q in BANK]
     assert len(ids) == len(set(ids))
     for q in BANK:
@@ -31,6 +31,12 @@ def test_bank_loads_and_is_well_formed():
 def test_every_bank_topic_exists_in_curriculum():
     for q in BANK:
         assert q.topic in CUR.by_id, f"{q.id} references unknown topic {q.topic}"
+
+
+def test_bank_covers_every_curriculum_topic():
+    covered = {q.topic for q in BANK}
+    missing = [t.id for t in CUR.topics if t.id not in covered]
+    assert not missing, f"no questions for topics: {missing}"
 
 
 def test_public_view_never_leaks_the_answer():
@@ -114,13 +120,13 @@ def test_full_adaptive_loop_grades_records_and_onboards(client):
         s = {"done": r["done"], "question": r["question"]}
         seen += 1
     assert s["done"] is True
+    assert seen == 20  # stops at the question cap, not after the whole (110-item) bank
     # Finishing the diagnostic satisfies onboarding (a computed fact).
     plan = client.get("/plan").json()
     assert plan["onboarded"] is True
-    # The answers fed the Knowledge Projection: tested topics now have real evidence.
+    # Exactly 20 answers were recorded and fed the Knowledge Projection.
     k = {t["topic"]: t for t in client.get("/knowledge").json()["topics"]}
-    assert k["nouns_articles"]["sample_size"] == 5
-    assert k["nouns_articles"]["mastery"] > 0.7
+    assert sum(t["sample_size"] for t in k.values()) == 20
 
 
 def test_answer_to_unknown_question_is_404(client):
