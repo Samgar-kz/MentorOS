@@ -6,9 +6,9 @@ is persisted, and the LLM is never consulted: the Teacher (``ai.py``) only *teac
 the topic the planner has already chosen. The plan "adapts" not because we edit it,
 but because it never existed as stored state.
 
-    events ─► build_topic_states ─┐
-    events ─► build_profile ──────┼─► build_plan ─► next_action ─► Today's lesson
-    graph  ───────────────────────┘
+    events ─► build_knowledge ─► states_from_knowledge ─┐
+    events ─► build_profile ────────────────────────────┼─► build_plan ─► next_action ─► lesson
+    graph  ─────────────────────────────────────────────┘
 """
 
 from __future__ import annotations
@@ -18,16 +18,11 @@ from dataclasses import asdict, dataclass, field
 
 from mentoros.assess import LevelEstimate, assess
 from mentoros.curriculum import CEFR_ORDER, Curriculum, load_curriculum
-from mentoros.events import (
-    ASSESSMENT_COMPLETED,
-    GRAMMAR_QUESTION,
-    PLACEMENT_PASSED,
-    Event,
-)
+from mentoros.events import ASSESSMENT_COMPLETED, Event
+from mentoros.knowledge import TopicKnowledge, build_knowledge, estimate_cefr
 from mentoros.profile import Profile, build_profile
-from mentoros.review import WordState, build_review_queue, next_box
+from mentoros.review import WordState, build_review_queue
 
-MASTERED_TOPIC_BOX = 3  # consecutive correct answers that "master" a grammar topic
 FOCUS_LIMIT = 3         # how many next topics to surface as the focus list
 
 STATUS_LOCKED = "locked"        # a prerequisite is not mastered yet
@@ -41,16 +36,16 @@ _FOCUS_RANK = {STATUS_LEARNING: 0, STATUS_AVAILABLE: 1}
 
 @dataclass
 class TopicState:
-    """Computed state of one curriculum topic — never stored (folded from events)."""
+    """Computed state of one curriculum topic — never stored. A thin view over the
+    Knowledge Projection (mastery + confidence) plus its place in the graph."""
 
     id: str
     title: str
     level: str
     status: str
-    box: int
-    answers: int
-    correct: int
-    accuracy: float
+    mastery: float
+    confidence: float
+    sample_size: int
     requires: list[str]
 
 
@@ -80,49 +75,27 @@ class Plan:
         return asdict(self)
 
 
-def onboarding_state(events: list[Event]) -> tuple[bool, str | None]:
-    """Whether the level check is done, and the level it found — computed from events.
-    Onboarding is itself a fact (``assessment_completed``), not a stored flag (Rule 1)."""
-    completed = [e for e in events if e.type == ASSESSMENT_COMPLETED]
-    if not completed:
-        return False, None
-    last = max(completed, key=lambda e: (e.ts, e.id))
-    return True, last.payload.get("level")
+def is_onboarded(events: list[Event]) -> bool:
+    """Whether the level check has been done — computed from events. Onboarding is a
+    fact (``assessment_completed``), a pure marker; no level is stored anywhere. The
+    actual level is always the CEFR *projection* of the knowledge model."""
+    return any(e.type == ASSESSMENT_COMPLETED for e in events)
 
 
-def build_topic_states(
-    events: list[Event], curriculum: Curriculum, now: float | None = None
+def states_from_knowledge(
+    knowledge: dict[str, TopicKnowledge], curriculum: Curriculum
 ) -> dict[str, TopicState]:
-    """Fold ``grammar_question`` events into per-topic Leitner state, then derive
-    locked/available/learning/mastered from prerequisite mastery. Pure & deterministic."""
-    tally = {t.id: {"box": 0, "answers": 0, "correct": 0} for t in curriculum.topics}
-    # Replay in time order: a real answer moves the Leitner box; a placement marks a
-    # known topic (and its foundations) as mastered. Order matters — a later wrong
-    # answer on a placed topic resets its box, so placement is self-correcting.
-    for e in sorted(events, key=lambda e: (e.ts, e.id)):
-        if e.type == GRAMMAR_QUESTION:
-            topic = e.payload.get("topic")
-            if topic in tally:
-                correct = bool(e.payload.get("correct", False))
-                t = tally[topic]
-                t["box"] = next_box(t["box"], correct)
-                t["answers"] += 1
-                t["correct"] += int(correct)
-        elif e.type == PLACEMENT_PASSED:
-            topic = e.payload.get("topic")
-            if topic in tally:
-                for tid in curriculum.with_prerequisites(topic):
-                    tally[tid]["box"] = MASTERED_TOPIC_BOX  # placement: foundations covered
-
-    mastered = {tid: tally[tid]["box"] >= MASTERED_TOPIC_BOX for tid in tally}
-
+    """Derive each topic's status from the Knowledge Projection + prerequisites:
+    a topic is *mastered* when it is known (mastery & confidence high); otherwise it is
+    *available*/*learning* once its prerequisites are known, else *locked*."""
+    known = {tid: k.known for tid, k in knowledge.items()}
     states: dict[str, TopicState] = {}
     for topic in curriculum.topics:
-        t = tally[topic.id]
-        if mastered[topic.id]:
+        k = knowledge[topic.id]
+        if k.known:
             status = STATUS_MASTERED
-        elif all(mastered.get(r, False) for r in topic.requires):
-            status = STATUS_LEARNING if t["answers"] > 0 else STATUS_AVAILABLE
+        elif all(known.get(r, False) for r in topic.requires):
+            status = STATUS_LEARNING if k.sample_size > 0 else STATUS_AVAILABLE
         else:
             status = STATUS_LOCKED
         states[topic.id] = TopicState(
@@ -130,13 +103,19 @@ def build_topic_states(
             title=topic.title,
             level=topic.level,
             status=status,
-            box=t["box"],
-            answers=t["answers"],
-            correct=t["correct"],
-            accuracy=(t["correct"] / t["answers"]) if t["answers"] else 0.0,
+            mastery=k.mastery,
+            confidence=k.confidence,
+            sample_size=k.sample_size,
             requires=list(topic.requires),
         )
     return states
+
+
+def build_topic_states(
+    events: list[Event], curriculum: Curriculum, now: float | None = None
+) -> dict[str, TopicState]:
+    """Per-topic status, computed from the Knowledge Projection. Pure & deterministic."""
+    return states_from_knowledge(build_knowledge(events, curriculum), curriculum)
 
 
 def focus_topics(curriculum: Curriculum, states: dict[str, TopicState]) -> list[TopicState]:
@@ -198,6 +177,8 @@ def plan_today(
     profile = build_profile(events, now=now)
     level = assess(profile)
     queue = build_review_queue(profile.vocabulary, now)
-    states = build_topic_states(events, curriculum, now)
-    onboarded, cefr_level = onboarding_state(events)
+    knowledge = build_knowledge(events, curriculum)
+    states = states_from_knowledge(knowledge, curriculum)
+    onboarded = is_onboarded(events)
+    cefr_level = estimate_cefr(knowledge, curriculum)  # CEFR is a projection, not stored
     return build_plan(curriculum, states, queue, level, now, onboarded, cefr_level)

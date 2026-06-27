@@ -161,6 +161,18 @@ def topics(store: EventStore = Depends(get_store)) -> dict:
     return {"topics": [asdict(s) for s in states.values()]}
 
 
+@app.get("/knowledge")
+def knowledge(store: EventStore = Depends(get_store)) -> dict:
+    """The Knowledge Projection: per-topic mastery + confidence, and the CEFR it implies.
+    All computed from events, never stored (Rule 3 / Rule 6)."""
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge, estimate_cefr
+
+    curriculum = load_curriculum()
+    k = build_knowledge(store.read_all(), curriculum)
+    return {"cefr": estimate_cefr(k, curriculum), "topics": [v.to_dict() for v in k.values()]}
+
+
 @app.post("/topics/answer")
 def topic_answer(body: TopicAnswerIn, store: EventStore = Depends(get_store)) -> dict:
     """Record a grammar-topic outcome — a fact (Rule 1), folded into topic mastery."""
@@ -174,20 +186,21 @@ def placement(body: PlacementIn, store: EventStore = Depends(get_store)) -> dict
     becomes mastered via placement facts — so the plan starts where they already are,
     not at A1. Recomputed like everything else; a later wrong answer can resurface a
     placed topic (Rule 5)."""
-    from mentoros.curriculum import CEFR_ORDER, load_curriculum
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge, estimate_cefr
 
     known = set(body.known_levels)
     curriculum = load_curriculum()
     passed = [t for t in curriculum.topics if t.level in known]
     for t in passed:
-        store.record(PLACEMENT_PASSED, {"topic": t.id, "level": t.level})
+        store.record(PLACEMENT_PASSED, {"topic": t.id})  # input: a known topic (no stored level)
 
-    # The level check is now complete — record it as a fact, with the level it found.
-    ranked = sorted(known, key=lambda lv: CEFR_ORDER.get(lv, -1))
-    level = ranked[-1] if ranked else "A1"
-    store.record(ASSESSMENT_COMPLETED, {"level": level, "known_levels": sorted(known)})
+    # The level check is complete — a pure onboarding marker; no level is stored.
+    store.record(ASSESSMENT_COMPLETED, {})
 
-    return {"known_levels": sorted(known), "placed": [t.id for t in passed], "level": level}
+    # The level shown back is a *projection* of the resulting knowledge (Knowledge -> CEFR).
+    cefr = estimate_cefr(build_knowledge(store.read_all(), curriculum), curriculum)
+    return {"known_levels": sorted(known), "placed": [t.id for t in passed], "level": cefr or "A1"}
 
 
 @app.get("/profile")

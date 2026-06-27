@@ -23,6 +23,7 @@ events  ──►  build_profile()  ──►  profile.json   (a regenerable cac
 3. **Everything is computed** — the profile is always rebuilt from events.
 4. **AI never changes facts** — AI only forms hypotheses (V2+); it is never a source of truth.
 5. **The plan is computed, not stored** — no "150-day plan" file to patch; the plan, the level, today's lesson are all recomputed from `events + curriculum_graph`, like the review queue. (Rule 3 applied to the planner.)
+6. **Assessment is continuous** — every learning event is also an assessment event; there is no "end of the test". Per-topic **mastery + confidence** (and the CEFR they imply) are recomputed from events forever.
 
 ## Quickstart (V1 — deterministic core, no DB/web/AI)
 
@@ -108,15 +109,19 @@ it is fully testable with no DB, web, or AI. The DB / API / frontend wrap it nex
 
 ## Roadmap
 
-Layers are gated by **usage, not time** — each is a set of projections over an
-unchanged core, never a rewrite. See [SPEC.md](SPEC.md#roadmap--the-gate) for the gate.
+One invariant across every version: **new capabilities are added as projections or
+services over the Event Store — never by rewriting the core.** Layers are gated by
+**usage, not time**. See [SPEC.md](SPEC.md#roadmap) for detail.
 
-- **Core v1 (done):** Event Store · Profile Projection · Review Queue · AI Teacher (chat) · Deterministic Memory.
-- **Planner v2 (built):** Curriculum Graph (`data/curriculum/`) · `assess(events)` · `build_topic_states(...)` · `build_plan(...)` · `next_action(...)` · **onboarding** (new users check their level first → plan starts at that level, not A1; `POST /placement`) · `GET /plan`. The system decides what to teach today; the plan is **computed, not stored** (Rule 5).
-- **Teacher v3 (gated — 14 days of self-driven use first):** Voice · Writing / Speaking / Reading / Listening coaches. *Goal: a full personal teacher.*
+- **✅ Core v1 (completed, in use):** Event Store · Profile Projection · Review Queue · AI Chat · Planner · Curriculum Graph (`data/curriculum/`) · Onboarding · Level Placement (self-report) · Daily Lesson · Rules 1–6 · **Knowledge Projection** (per-topic mastery + confidence, `mentoros/knowledge.py`, `GET /knowledge`).
+- **🚧 Assessment v2 (better measurement, not a new tutor):** Adaptive Placement · Adaptive Calibration · **Question Bank** · Topic/Skill Confidence · Stop-by-Confidence. Produces higher-quality events; the core is untouched.
+- **🚧 Teacher v3 (the real personal teacher):** consumes Knowledge Projection + Planner + today's lesson; explains, questions, adapts, corrects. Makes no architectural decisions.
+- **🚧 Coach v4 (the other skills):** Reading · Listening · Speaking · Writing · Vocabulary — each on the same shape `events → knowledge → planner → teacher`.
+- **🚧 Psychometrics v5 (optional, data-permitting):** calibrate item difficulty/discrimination (real IRT) once enough data accrues; the system works without it.
 
-The LLM lives only in the Teacher seam — swapping OpenAI → Claude → anything else
-changes only that layer; memory, profile, plan, review, and diagnostics are untouched.
+CEFR is **only an outward label**: `Events → Knowledge Projection → CEFR Projection`,
+never the reverse. The LLM lives only in the Teacher seam — swapping OpenAI → Claude →
+anything else changes only that layer; memory, knowledge, plan and review are untouched.
 
 ## Success metric
 

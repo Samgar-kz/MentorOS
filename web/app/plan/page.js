@@ -106,7 +106,9 @@ export default function Plan() {
               </div>
               <div style={{ fontSize: 20, fontWeight: 600, margin: "4px 0 2px" }}>{lesson.title}</div>
               <div style={{ color: "#888", fontSize: 13 }}>
-                Mastery {lesson.box}/3 · {lesson.answers} attempt{lesson.answers === 1 ? "" : "s"}
+                Mastery {Math.round((lesson.mastery || 0) * 100)}% · Confidence{" "}
+                {Math.round((lesson.confidence || 0) * 100)}% · {lesson.sample_size} answer
+                {lesson.sample_size === 1 ? "" : "s"}
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
@@ -121,7 +123,8 @@ export default function Plan() {
                 </button>
               </div>
               <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
-                3 correct in a row masters a topic and unlocks the next one.
+                Each answer updates mastery and our confidence; a topic unlocks the next
+                once both are high enough.
               </p>
             </div>
           ) : (

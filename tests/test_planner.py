@@ -15,7 +15,6 @@ from mentoros.events import (
     Event,
 )
 from mentoros.planner import (
-    MASTERED_TOPIC_BOX,
     STATUS_AVAILABLE,
     STATUS_LEARNING,
     STATUS_LOCKED,
@@ -49,7 +48,9 @@ GRAPH = Curriculum([
 
 
 def master(topic, start_ts=1):
-    return [gq(topic, True, start_ts + i) for i in range(MASTERED_TOPIC_BOX)]
+    # Placement is the clean way to mark a topic known in tests (see test_knowledge.py
+    # for the answer-driven path). It marks the topic and its prerequisites known.
+    return [placed(topic, start_ts)]
 
 
 # --- curriculum validation -------------------------------------------------- #
@@ -88,17 +89,18 @@ def test_mastering_a_unlocks_b():
 
 
 def test_in_progress_topic_is_learning():
-    # one correct answer: started but not mastered (needs MASTERED_TOPIC_BOX)
+    # one correct answer: started, but too little evidence to be "known"
     states = build_topic_states([gq("a", True, 1)], GRAPH, NOW)
     assert states["a"].status == STATUS_LEARNING
-    assert states["a"].answers == 1
+    assert states["a"].sample_size == 1
 
 
-def test_wrong_answer_resets_box_so_no_premature_mastery():
-    events = [gq("a", True, 1), gq("a", True, 2), gq("a", False, 3)]
+def test_a_few_correct_is_not_yet_known():
+    # High mastery but low confidence -> still learning, not mastered (Knowledge model).
+    events = [gq("a", True, 1), gq("a", True, 2), gq("a", True, 3)]
     states = build_topic_states(events, GRAPH, NOW)
-    assert states["a"].box == 0
     assert states["a"].status == STATUS_LEARNING
+    assert states["a"].mastery >= 0.7
 
 
 # --- next action ------------------------------------------------------------ #
@@ -148,13 +150,12 @@ def test_placement_masters_topic_and_its_prerequisites():
 
 
 def test_placement_is_self_correcting():
-    # Placed into b, then later got b wrong -> b resurfaces; a (placed) stays mastered.
-    events = [placed("b", 1), gq("b", False, 2)]
+    # Placed into b, then got b wrong repeatedly -> b resurfaces; a (placed) stays known.
+    events = [placed("b", 1), gq("b", False, 2), gq("b", False, 3), gq("b", False, 4)]
     states = build_topic_states(events, GRAPH, NOW)
     assert states["a"].status == STATUS_MASTERED
     assert states["b"].status == STATUS_LEARNING
-    assert states["b"].box == 0
-    assert states["c"].status == STATUS_LOCKED  # b no longer mastered -> c relocks
+    assert states["c"].status == STATUS_LOCKED  # b no longer known -> c relocks
 
 
 def test_placement_by_level_starts_plan_above_a1():
@@ -175,8 +176,10 @@ def test_new_student_is_not_onboarded():
     assert plan.cefr_level is None
 
 
-def test_assessment_completed_marks_onboarded_with_level():
+def test_assessment_completed_marks_onboarded_but_cefr_is_computed():
+    # Onboarding is a fact (assessment_completed); CEFR is a projection of knowledge,
+    # so with no actual evidence yet it stays None even though the student is onboarded.
     events = [ev(ASSESSMENT_COMPLETED, {"level": "B1", "known_levels": ["A1", "A2", "B1"]}, 5)]
     plan = plan_today(events, GRAPH, now=NOW)
     assert plan.onboarded is True
-    assert plan.cefr_level == "B1"
+    assert plan.cefr_level is None

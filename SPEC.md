@@ -47,6 +47,13 @@ exactly like the review queue. The plan "adapts" not because we edit it, but bec
 it never existed as stored state. This is Rule 3 applied to the planner — named
 separately because the planner is where the temptation to store state is strongest.
 
+**Rule 6 — Assessment is continuous. Every learning event is also an assessment
+event.** There is no "end of the test". The first placement is only a start; the
+knowledge model updates after every answer, exercise and lesson, forever. This follows
+directly from Rules 1 + 3 (the level is a forever-recomputed projection of all events),
+but is named because it is the product stance that sets MentorOS apart: you take the
+test every day without noticing.
+
 ---
 
 ## Architecture (target)
@@ -67,6 +74,35 @@ V1 implements the **deterministic core** (the bottom of this stack, minus the AI
 pure Python, no DB/web/AI required, fully testable. The DB, API, and frontend wrap it.
 
 ---
+
+## The Knowledge Projection — the core (mastery + confidence)
+
+The real heart of MentorOS is not the AI, the Planner or the Teacher — it is the
+**math model of knowledge**. For every topic we compute two *different* numbers from
+the event log, never stored (`mentoros/knowledge.py`):
+
+- **mastery** — how well the student knows it (Beta-Binomial posterior mean over their
+  answers),
+- **confidence** — how sure *we* are of that mastery (narrowness of the posterior).
+
+They move independently: a few right answers → high mastery but **low** confidence
+(tiny sample); many answers → the interval narrows and confidence rises, whether the
+verdict is "knows it" or "doesn't". This replaces meaningless single percentages
+("Grammar: 82%") with an honest, two-number engineering estimate. A topic is *known*
+only when **both** clear a threshold.
+
+Everything else is a layer over this model, not a competitor to it:
+
+```
+Layer 0  Facts          events (the only source of truth)
+Layer 1  Knowledge      build_knowledge(events) -> {topic: (mastery, confidence)}
+Layer 2  Assessment     a projection: estimate_cefr(knowledge) — CEFR is computed, never stored
+Layer 3  Planner        picks today's node from knowledge + curriculum graph + review queue
+Layer 4  Teacher (LLM)  taught the chosen topic; never decides what to learn
+```
+
+Because the model is subject-agnostic, switching TOEFL → GRE → any subject changes
+only the curriculum graph and the question bank — not the core.
 
 ## The Planner (V2) — four pure functions, not four modules
 
@@ -144,27 +180,31 @@ No extra steps.
 
 ---
 
-## Roadmap & the gate
+## Roadmap
 
-The layers are gated by **usage, not time** (Rule 0). Each layer is a set of
-projections on top of an unchanged core — never a rewrite.
+The one invariant across every version: **new capabilities are added as new
+projections or services over the Event Store — never by rewriting the core.** Each
+layer is gated by **usage, not time** (Rule 0).
 
-- **Core v1 — *done*.** Event Store · Profile Projection · Review Queue · AI Teacher
-  (chat) · Deterministic Memory.
-- **Planner v2 — *built*.** Curriculum Graph (`data/curriculum/`) · `assess(events)` ·
-  `build_topic_states(...)` · `build_plan(...)` · `next_action(...)` · `GET /plan`.
-  The system itself decides what to teach today; the Teacher only teaches the chosen
-  topic. *(Built ahead of the usage gate by explicit request — the gate now guards v3.)*
-- **Teacher v3 — *gated*.** Voice · Writing / Speaking / Reading / Listening coaches.
-  **Goal: turn the Planner into a full personal teacher.**
+- **✅ Core v1 — *completed, in use*.** Event Store (append-only) · Profile Projection ·
+  Review Queue · AI Chat · Planner · Curriculum Graph · Onboarding · Level Placement
+  (self-report) · Daily Lesson · Rules 1–6 · **Knowledge Projection (mastery + confidence)**.
+- **🚧 Assessment v2 — *better measurement, not a new tutor*.** Adaptive Placement Test ·
+  Adaptive Calibration · **Question Bank** · Topic Confidence · Skill Confidence ·
+  Stop-by-Confidence. Doesn't touch the core — it just produces higher-quality events.
+- **🚧 Teacher v3 — *the real personal teacher*.** Consumes Knowledge Projection +
+  Planner + today's lesson; explains, questions, adapts, gives examples, corrects.
+  Makes **no architectural decisions** — uses what the system already computed.
+- **🚧 Coach v4 — *the other skills*.** Reading · Listening · Speaking · Writing ·
+  Vocabulary — each built on the same shape: `events → knowledge → planner → teacher`.
+  The architecture is identical regardless of skill.
+- **🚧 Psychometrics v5 — *optional, data-permitting*.** When enough data accrues,
+  move from heuristics to calibrated item difficulty / discrimination (real IRT). If
+  data is insufficient, the system keeps working on the current model. Not required.
 
-**The gate (before v3):** after **14 days**, answer one question —
-*"Did I open MentorOS on my own, without reminders?"*
-
-- **Yes** → build the next layer.
-- **No** → do **not** add features. Find out why the desire to open it disappeared.
-  A bigger plan won't fix a loop that isn't pulling you back; it will only hide the
-  problem behind complexity.
+CEFR is **only an outward label**: internally the system has events, per-topic
+knowledge, and the curriculum graph. `Events → Knowledge Projection → CEFR Projection`,
+never the reverse (Rule 3 + Rule 6).
 
 ---
 
