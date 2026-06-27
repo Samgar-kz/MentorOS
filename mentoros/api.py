@@ -29,10 +29,11 @@ from mentoros.review import WordState, build_review_queue
 app = FastAPI(title="MentorOS", version="0.1.0",
               description="AI tutor that never forgets — event-sourced learning engine.")
 
-# Let the Next.js dev server (localhost:3000) call the API in development.
+# Local dev tool: allow any origin so the browser is never the blocker, regardless
+# of host/port the frontend is served from (localhost vs 127.0.0.1, any port).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
