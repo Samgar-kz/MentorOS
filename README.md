@@ -114,7 +114,7 @@ services over the Event Store — never by rewriting the core.** Layers are gate
 **usage, not time**. See [SPEC.md](SPEC.md#roadmap) for detail.
 
 - **✅ Core v1 (completed, in use):** Event Store · Profile Projection · Review Queue · AI Chat · Planner · Curriculum Graph (`data/curriculum/`) · Onboarding · Level Placement (self-report) · Daily Lesson · Rules 1–6 · **Knowledge Projection** (per-topic mastery + confidence, `mentoros/knowledge.py`, `GET /knowledge`).
-- **🚧 Assessment v2 (better measurement, not a new tutor):** Adaptive Placement · Adaptive Calibration · **Question Bank** · Topic/Skill Confidence · Stop-by-Confidence. Produces higher-quality events; the core is untouched.
+- **🚧 Assessment v2 (prototype shipped):** adaptive diagnostic over a curated **Question Bank** (`mentoros/assessment/`, `data/assessment/`) — selector + stop-by-confidence, server-side grading, event-sourced session (`POST /assessment/start` · `/assessment/answer`). Prototype = 20 grammar items; full v2 needs a much larger bank. Produces higher-quality events; the core is untouched.
 - **🚧 Teacher v3 (the real personal teacher):** consumes Knowledge Projection + Planner + today's lesson; explains, questions, adapts, corrects. Makes no architectural decisions.
 - **🚧 Coach v4 (the other skills):** Reading · Listening · Speaking · Writing · Vocabulary — each on the same shape `events → knowledge → planner → teacher`.
 - **🚧 Psychometrics v5 (optional, data-permitting):** calibrate item difficulty/discrimination (real IRT) once enough data accrues; the system works without it.

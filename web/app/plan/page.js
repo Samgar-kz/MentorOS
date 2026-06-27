@@ -72,9 +72,12 @@ export default function Plan() {
             Before building your plan, let&apos;s find your level — it takes about a minute.
             Your plan is then created from what you already know, so you don&apos;t start at A1.
           </p>
-          <Link href="/placement" style={{ ...btn("#06c"), textDecoration: "none", display: "inline-block" }}>
+          <Link href="/assessment" style={{ ...btn("#06c"), textDecoration: "none", display: "inline-block" }}>
             Check my level →
           </Link>
+          <span style={{ fontSize: 13, color: "#888", marginLeft: 10 }}>
+            or <Link href="/placement" style={{ color: "#06c" }}>quick self-report</Link>
+          </span>
         </div>
       )}
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import uuid
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -91,6 +91,13 @@ class TopicAnswerIn(BaseModel):
 
 class PlacementIn(BaseModel):
     known_levels: list[str] = []  # CEFR levels the student already knows, e.g. ["A1","A2","B1"]
+
+
+class AssessmentAnswerIn(BaseModel):
+    question: str
+    choice: int
+    latency: float = 0.0
+    confidence: int | None = None  # optional self-rated confidence (1-5)
 
 
 class ChatIn(BaseModel):
@@ -178,6 +185,43 @@ def topic_answer(body: TopicAnswerIn, store: EventStore = Depends(get_store)) ->
     """Record a grammar-topic outcome — a fact (Rule 1), folded into topic mastery."""
     e = store.record(GRAMMAR_QUESTION, body.model_dump())
     return {"recorded": e.id, "topic": body.topic, "correct": body.correct}
+
+
+@app.post("/assessment/start")
+def assessment_start(store: EventStore = Depends(get_store)) -> dict:
+    """Begin (or resume) the adaptive diagnostic — returns the next question to ask."""
+    from mentoros.assessment.adaptive import next_step
+    from mentoros.curriculum import load_curriculum
+
+    return next_step(store.read_all(), load_curriculum()).to_dict()
+
+
+@app.post("/assessment/answer")
+def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_store)) -> dict:
+    """Grade the answer server-side, record it as a fact, and return feedback + next step.
+    Finishing the diagnostic also satisfies onboarding."""
+    from mentoros.assessment.adaptive import next_step
+    from mentoros.assessment.question_bank import by_id, load_bank
+    from mentoros.assessment.session import grade
+    from mentoros.curriculum import load_curriculum
+
+    bank = load_bank()
+    q = by_id(bank).get(body.question)
+    if q is None:
+        raise HTTPException(status_code=404, detail="unknown question")
+
+    correct = grade(q, body.choice)
+    payload = {"topic": q.topic, "correct": correct, "question": q.id, "latency": body.latency}
+    if body.confidence is not None:
+        payload["confidence"] = body.confidence
+    store.record(GRAMMAR_QUESTION, payload)
+
+    events = store.read_all()
+    step = next_step(events, load_curriculum(), bank)
+    if step.done and not any(e.type == ASSESSMENT_COMPLETED for e in events):
+        store.record(ASSESSMENT_COMPLETED, {})  # finishing the test = onboarded
+
+    return {"correct": correct, "answer": q.answer, "explanation": q.explanation, **step.to_dict()}
 
 
 @app.post("/placement")

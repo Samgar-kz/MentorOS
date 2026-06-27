@@ -189,9 +189,13 @@ layer is gated by **usage, not time** (Rule 0).
 - **✅ Core v1 — *completed, in use*.** Event Store (append-only) · Profile Projection ·
   Review Queue · AI Chat · Planner · Curriculum Graph · Onboarding · Level Placement
   (self-report) · Daily Lesson · Rules 1–6 · **Knowledge Projection (mastery + confidence)**.
-- **🚧 Assessment v2 — *better measurement, not a new tutor*.** Adaptive Placement Test ·
-  Adaptive Calibration · **Question Bank** · Topic Confidence · Skill Confidence ·
-  Stop-by-Confidence. Doesn't touch the core — it just produces higher-quality events.
+- **🚧 Assessment v2 — *prototype shipped*.** An adaptive diagnostic over a curated
+  **Question Bank** (`mentoros/assessment/`, `data/assessment/`): selector (uncertainty +
+  coverage + review) · stop-by-confidence · session is event-sourced (asked questions
+  derived from events) · `POST /assessment/start` + `/assessment/answer` grade server-side
+  and feed the Knowledge Projection. Doesn't touch the core — it just produces
+  higher-quality events. *Prototype = 20 hand-picked grammar items; full v2 needs a much
+  larger bank (a tiny bank can't cover enough of the graph to lock a CEFR level — by design).*
 - **🚧 Teacher v3 — *the real personal teacher*.** Consumes Knowledge Projection +
   Planner + today's lesson; explains, questions, adapts, gives examples, corrects.
   Makes **no architectural decisions** — uses what the system already computed.
