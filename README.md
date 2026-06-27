@@ -89,6 +89,7 @@ Three endpoints, one rule — **the model never decides facts**:
 
 The tutor sits behind an `AITutor` seam: `OpenAITutor` when `OPENAI_API_KEY` is set
 (`pip install '.[ai]'`), otherwise an offline `StubTutor` so `/chat` still works.
+Put your key in `.env` (copy `.env.example`) — it's gitignored and loaded by `make dev`.
 Swap in a Claude/Gemini tutor and nothing else changes — all memory lives in
 MentorOS, not in the model.
 

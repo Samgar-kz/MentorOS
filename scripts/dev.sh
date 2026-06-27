@@ -4,6 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Load local secrets (gitignored) if present — provides OPENAI_API_KEY for the tutor.
+[ -f .env ] && { set -a; . ./.env; set +a; }
+
 export MENTOROS_STORE="${MENTOROS_STORE:-data/default.events.jsonl}"
 
 # Bootstrap so `make dev` is the only command you ever need to remember.
