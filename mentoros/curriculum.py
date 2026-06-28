@@ -16,9 +16,7 @@ from pathlib import Path
 
 CEFR_ORDER = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
 
-DEFAULT_PATH = (
-    Path(__file__).resolve().parent.parent / "data" / "curriculum" / "english_grammar.json"
-)
+DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "curriculum"
 
 
 @dataclass(frozen=True)
@@ -84,17 +82,21 @@ class Curriculum:
 
 @lru_cache(maxsize=None)
 def load_curriculum(path: str | None = None) -> Curriculum:
-    """Load and validate the curriculum graph (cached — it is static)."""
-    p = Path(path) if path else DEFAULT_PATH
-    data = json.loads(p.read_text(encoding="utf-8"))
-    topics = [
-        Topic(
-            id=d["id"],
-            title=d["title"],
-            level=d["level"],
-            skill=d.get("skill", "grammar"),
-            requires=tuple(d.get("requires", [])),
-        )
-        for d in data["topics"]
-    ]
+    """Load and validate the curriculum graph (cached — it is static). With no path,
+    merges every ``*.json`` under data/curriculum/ (grammar + vocabulary + reading + …),
+    so adding a skill is just dropping in a content file."""
+    files = [Path(path)] if path else sorted(DEFAULT_DIR.glob("*.json"))
+    topics: list[Topic] = []
+    for p in files:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        for d in data["topics"]:
+            topics.append(
+                Topic(
+                    id=d["id"],
+                    title=d["title"],
+                    level=d["level"],
+                    skill=d.get("skill", "grammar"),
+                    requires=tuple(d.get("requires", [])),
+                )
+            )
     return Curriculum(topics)

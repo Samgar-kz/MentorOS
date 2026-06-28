@@ -50,6 +50,7 @@ def _beta_stats(successes: float, failures: float) -> tuple[float, float]:
 @dataclass
 class TopicKnowledge:
     topic: str
+    skill: str              # grammar | vocabulary | reading | …
     mastery: float          # posterior mean P(correct)
     confidence: float       # 0 (no data) .. 1 (very sure)
     sample_size: int        # real answers (placement pseudo-observations excluded)
@@ -97,6 +98,7 @@ def build_knowledge(
         known = mean >= MASTERY_THRESHOLD and confidence >= CONFIDENCE_THRESHOLD
         out[t.id] = TopicKnowledge(
             topic=t.id,
+            skill=t.skill,
             mastery=round(mean, 3),
             confidence=round(confidence, 3),
             sample_size=n[t.id],

@@ -1,0 +1,9 @@
+{
+  "name": "Listening (sub-skills)",
+  "version": 1,
+  "topics": [
+    { "id": "listening_detail",    "title": "Listening: Detail",    "level": "A2", "skill": "listening", "requires": [] },
+    { "id": "listening_gist",      "title": "Listening: Gist",      "level": "B1", "skill": "listening", "requires": [] },
+    { "id": "listening_inference", "title": "Listening: Inference", "level": "B2", "skill": "listening", "requires": [] }
+  ]
+}

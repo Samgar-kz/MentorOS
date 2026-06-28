@@ -42,6 +42,7 @@ class TopicState:
     id: str
     title: str
     level: str
+    skill: str
     status: str
     mastery: float
     confidence: float
@@ -102,6 +103,7 @@ def states_from_knowledge(
             id=topic.id,
             title=topic.title,
             level=topic.level,
+            skill=topic.skill,
             status=status,
             mastery=k.mastery,
             confidence=k.confidence,

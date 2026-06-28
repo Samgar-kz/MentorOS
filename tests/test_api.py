@@ -66,7 +66,7 @@ def test_plan_starts_at_a1_then_placement_lifts_it(client):
     assert plan["onboarded"] is False
     assert plan["cefr_level"] is None
     assert plan["topics_mastered"] == 0
-    assert {f["level"] for f in plan["focus"]} == {"A1"}
+    assert "A1" in {f["level"] for f in plan["focus"]}  # the grammar foundation is in focus
 
     # Place the student at A1+A2: lower topics become known, focus moves up to B1.
     placed = client.post("/placement", json={"known_levels": ["A1", "A2"]}).json()

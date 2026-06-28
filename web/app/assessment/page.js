@@ -54,6 +54,8 @@ export default function Assessment() {
   const q = step?.question;
   const done = step?.done;
   const touched = (step?.knowledge || []).filter((k) => k.sample_size > 0);
+  const SKILL_ORDER = ["grammar", "vocabulary", "reading", "listening"];
+  const skills = SKILL_ORDER.filter((s) => touched.some((k) => k.skill === s));
 
   return (
     <main>
@@ -74,9 +76,16 @@ export default function Assessment() {
       {!done && q && (
         <div style={{ margin: "20px 0" }}>
           <p style={{ color: "#999", fontSize: 13 }}>
-            Question {step.asked_count + 1} · {q.cefr} · honing in: {step.estimated_level}
+            Question {step.asked_count + 1} · <strong>{(step.skill || "").replace(/_/g, " ")}</strong>
+            {" "}· {q.cefr} · honing in: {step.levels?.[step.skill]}
           </p>
           <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 20 }}>
+            {q.script && (
+              <div style={{ marginBottom: 12 }}>
+                <button onClick={() => speak(q.script)} style={{ ...btn("#444") }}>🔊 Play audio</button>
+                <span style={{ color: "#999", fontSize: 13, marginLeft: 10 }}>Listen, then choose.</span>
+              </div>
+            )}
             <div style={{ fontSize: 19, marginBottom: 12 }}>{q.question}</div>
             {q.choices.map((c, i) => {
               const isAnswer = feedback && i === feedback.answer;
@@ -119,26 +128,38 @@ export default function Assessment() {
       {/* Result */}
       {done && (
         <div style={{ margin: "20px 0" }}>
-          <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 24, textAlign: "center" }}>
-            <div style={{ color: "#999", fontSize: 13 }}>Estimated level</div>
-            <div style={{ fontSize: 40, fontWeight: 800, margin: "2px 0" }}>{step.estimated_level}</div>
-            <div style={{ color: "#666" }}>
-              {step.asked_count} questions · the test honed in on your level
+          <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 24 }}>
+            <div style={{ color: "#999", fontSize: 13, textAlign: "center" }}>Your level by skill</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 18, flexWrap: "wrap", margin: "10px 0" }}>
+              {Object.entries(step.levels || {}).map(([s, lvl]) => (
+                <div key={s} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>{lvl}</div>
+                  <div style={{ color: "#888", fontSize: 12, textTransform: "capitalize" }}>{s}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ color: "#666", textAlign: "center", fontSize: 13 }}>
+              {step.asked_count} questions · each skill measured separately
             </div>
           </div>
 
-          <h2 style={{ fontSize: 16, marginTop: 20 }}>What we learned</h2>
-          {touched.map((k) => (
-            <div key={k.topic} style={{ margin: "10px 0" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
-                <span>{k.topic.replace(/_/g, " ")}</span>
-                <span style={{ color: "#888" }}>
-                  mastery {Math.round(k.mastery * 100)}% · confidence {Math.round(k.confidence * 100)}%
-                </span>
-              </div>
-              <div style={{ background: "#eee", borderRadius: 6, height: 8, marginTop: 4 }}>
-                <div style={{ width: `${Math.round(k.mastery * 100)}%`, background: k.known ? "#0a7" : "#f0ad4e", height: 8, borderRadius: 6 }} />
-              </div>
+          {/* Knowledge Graph: per-topic mastery, grouped by skill */}
+          {skills.map((s) => (
+            <div key={s} style={{ marginTop: 18 }}>
+              <h2 style={{ fontSize: 15, textTransform: "capitalize", marginBottom: 6 }}>{s}</h2>
+              {touched.filter((k) => k.skill === s).map((k) => (
+                <div key={k.topic} style={{ margin: "8px 0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                    <span>{k.topic.replace(/^(vocab|reading)_/, "").replace(/_/g, " ")}</span>
+                    <span style={{ color: "#888" }}>
+                      mastery {Math.round(k.mastery * 100)}% · conf {Math.round(k.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div style={{ background: "#eee", borderRadius: 6, height: 8, marginTop: 4 }}>
+                    <div style={{ width: `${Math.round(k.mastery * 100)}%`, background: k.known ? "#0a7" : "#f0ad4e", height: 8, borderRadius: 6 }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
 
@@ -156,3 +177,13 @@ const btn = (bg) => ({
   background: bg, color: "#fff", border: "none", borderRadius: 8,
   padding: "10px 16px", cursor: "pointer", fontSize: 15,
 });
+
+// Listening (path A): speak the script with the browser's TTS — no audio files yet.
+function speak(text) {
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  } catch {
+    /* speechSynthesis unavailable */
+  }
+}

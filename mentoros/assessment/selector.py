@@ -26,16 +26,20 @@ def _rank(cefr: str) -> int:
     return CEFR_ORDER.get(cefr, 2)
 
 
-def estimate_theta(events: list[Event], bank: tuple[Question, ...]) -> float:
+def estimate_theta(
+    events: list[Event], bank: tuple[Question, ...], skill: str | None = None
+) -> float:
     """Ability on the CEFR scale (0=A1 .. 5=C2) from answered questions — an up/down
-    staircase with a shrinking step, so it converges to the student's level."""
+    staircase with a shrinking step, so it converges to the student's level. With a
+    ``skill`` it estimates that skill alone (each skill is measured separately)."""
     by = {q.id: q for q in bank}
     theta = START_THETA
     i = 0
     for e in sorted(events, key=lambda e: (e.ts, e.id)):
         if e.type != GRAMMAR_QUESTION:
             continue
-        if e.payload.get("question") not in by:
+        q = by.get(e.payload.get("question"))
+        if q is None or (skill is not None and q.skill != skill):
             continue
         step = max(0.4, 1.5 / (1 + 0.4 * i))
         theta += step if bool(e.payload.get("correct")) else -step
@@ -53,14 +57,18 @@ def select_next(
     knowledge: dict[str, TopicKnowledge],
     asked_ids: set[str],
     theta: float,
+    skill: str | None = None,
     review_topics: tuple[str, ...] = (),
 ) -> Question | None:
-    """The most informative unasked question near θ, or None once the band is settled."""
+    """The most informative unasked question near θ (within ``skill`` if given), or None
+    once that band is settled."""
     review = set(review_topics)
     best: Question | None = None
     best_key = None
     for q in bank:
         if q.id in asked_ids:
+            continue
+        if skill is not None and q.skill != skill:
             continue
         k = knowledge.get(q.topic)
         if k and k.confidence >= CONFIDENCE_STOP:

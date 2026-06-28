@@ -114,6 +114,12 @@ export default function LessonPage() {
 
           {isExercise && (
             <>
+              {step.question.script && (
+                <div style={{ marginBottom: 12 }}>
+                  <button onClick={() => speak(step.question.script)} style={btn("#444")}>🔊 Play audio</button>
+                  <span style={{ color: "#999", fontSize: 13, marginLeft: 10 }}>Listen, then choose.</span>
+                </div>
+              )}
               <div style={{ fontSize: 18, marginBottom: 12 }}>{step.question.question}</div>
               {step.question.choices.map((c, idx) => {
                 const isAns = feedback && idx === feedback.answer;
@@ -168,3 +174,13 @@ const btn = (bg) => ({
   background: bg, color: "#fff", border: "none", borderRadius: 8,
   padding: "10px 16px", cursor: "pointer", fontSize: 15,
 });
+
+// Listening (path A): speak the script with the browser's TTS — no audio files yet.
+function speak(text) {
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  } catch {
+    /* speechSynthesis unavailable */
+  }
+}

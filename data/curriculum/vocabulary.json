@@ -1,0 +1,10 @@
+{
+  "name": "Vocabulary (categories)",
+  "version": 1,
+  "topics": [
+    { "id": "vocab_general",      "title": "General Vocabulary",   "level": "A2", "skill": "vocabulary", "requires": [] },
+    { "id": "vocab_phrasal_verbs","title": "Phrasal Verbs",        "level": "B1", "skill": "vocabulary", "requires": [] },
+    { "id": "vocab_collocations", "title": "Collocations",         "level": "B1", "skill": "vocabulary", "requires": [] },
+    { "id": "vocab_academic",     "title": "Academic Vocabulary",  "level": "B2", "skill": "vocabulary", "requires": [] }
+  ]
+}

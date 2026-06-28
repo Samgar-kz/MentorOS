@@ -20,6 +20,17 @@ def asked_ids(events: list[Event]) -> set[str]:
     }
 
 
+def asked_count_by_skill(events: list[Event], bank: tuple[Question, ...]) -> dict[str, int]:
+    """How many questions have been answered per skill (from the event log)."""
+    by = {q.id: q for q in bank}
+    counts: dict[str, int] = {}
+    for qid in asked_ids(events):
+        q = by.get(qid)
+        if q is not None:
+            counts[q.skill] = counts.get(q.skill, 0) + 1
+    return counts
+
+
 def grade(question: Question, choice: int) -> bool:
     """Grade a chosen option against the answer key (server-side only)."""
     return choice == question.answer

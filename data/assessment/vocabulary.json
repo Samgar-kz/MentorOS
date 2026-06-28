@@ -1,0 +1,34 @@
+{
+  "name": "Vocabulary assessment bank",
+  "version": 1,
+  "note": "AI-authored draft; difficulty hand-set; needs human review.",
+  "questions": [
+    { "id": "v_gen_01", "skill": "vocabulary", "topic": "vocab_general", "cefr": "A2", "difficulty": 0.20, "question": "She was very ___ after the long trip.", "choices": ["tired", "table", "quick", "green"], "answer": 0, "explanation": "'tired' = needing rest." },
+    { "id": "v_gen_02", "skill": "vocabulary", "topic": "vocab_general", "cefr": "A2", "difficulty": 0.22, "question": "Please ___ the door, it's cold.", "choices": ["close", "open", "break", "paint"], "answer": 0, "explanation": "Close the door to keep the cold out." },
+    { "id": "v_gen_03", "skill": "vocabulary", "topic": "vocab_general", "cefr": "A2", "difficulty": 0.28, "question": "He bought a ___ of milk.", "choices": ["bottle", "slice", "sheet", "pair"], "answer": 0, "explanation": "Milk comes in a bottle (or carton)." },
+    { "id": "v_gen_04", "skill": "vocabulary", "topic": "vocab_general", "cefr": "B1", "difficulty": 0.42, "question": "The opposite of 'increase' is ___.", "choices": ["decrease", "improve", "expand", "continue"], "answer": 0, "explanation": "decrease = go down; the opposite of increase." },
+    { "id": "v_gen_05", "skill": "vocabulary", "topic": "vocab_general", "cefr": "B1", "difficulty": 0.44, "question": "A person who teaches at a university is a ___.", "choices": ["professor", "student", "patient", "customer"], "answer": 0, "explanation": "A professor teaches at university." },
+    { "id": "v_gen_06", "skill": "vocabulary", "topic": "vocab_general", "cefr": "B1", "difficulty": 0.48, "question": "I can't ___ the difference between them.", "choices": ["tell", "say", "speak", "talk"], "answer": 0, "explanation": "Fixed expression: tell the difference." },
+
+    { "id": "v_pv_01", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "A2", "difficulty": 0.30, "question": "I need to ___ early tomorrow.", "choices": ["get up", "get on", "get off", "get in"], "answer": 0, "explanation": "get up = leave your bed." },
+    { "id": "v_pv_02", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "B1", "difficulty": 0.46, "question": "Please ___ your shoes before entering.", "choices": ["take off", "take on", "take up", "take in"], "answer": 0, "explanation": "take off = remove." },
+    { "id": "v_pv_03", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "B1", "difficulty": 0.50, "question": "We had to ___ the meeting until next week.", "choices": ["put off", "put on", "put up", "put down"], "answer": 0, "explanation": "put off = postpone." },
+    { "id": "v_pv_04", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "B1", "difficulty": 0.52, "question": "She ___ smoking last year.", "choices": ["gave up", "gave in", "gave away", "gave out"], "answer": 0, "explanation": "give up = stop a habit." },
+    { "id": "v_pv_05", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "B1", "difficulty": 0.48, "question": "Can you ___ this word in the dictionary?", "choices": ["look up", "look after", "look for", "look out"], "answer": 0, "explanation": "look up = search for information." },
+    { "id": "v_pv_06", "skill": "vocabulary", "topic": "vocab_phrasal_verbs", "cefr": "B1", "difficulty": 0.50, "question": "The plane will ___ in ten minutes.", "choices": ["take off", "take in", "take over", "take up"], "answer": 0, "explanation": "take off = leave the ground." },
+
+    { "id": "v_col_01", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "B1", "difficulty": 0.44, "question": "I need to ___ a decision.", "choices": ["make", "do", "take", "have"], "answer": 0, "explanation": "Collocation: make a decision." },
+    { "id": "v_col_02", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "B1", "difficulty": 0.46, "question": "She ___ a lot of money on books.", "choices": ["spends", "pays", "buys", "costs"], "answer": 0, "explanation": "Collocation: spend money on." },
+    { "id": "v_col_03", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "A2", "difficulty": 0.40, "question": "Let me ___ a photo of you.", "choices": ["take", "make", "do", "get"], "answer": 0, "explanation": "Collocation: take a photo." },
+    { "id": "v_col_04", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "B2", "difficulty": 0.58, "question": "The company ___ a profit last year.", "choices": ["made", "did", "took", "won"], "answer": 0, "explanation": "Collocation: make a profit." },
+    { "id": "v_col_05", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "B2", "difficulty": 0.60, "question": "We need to ___ attention to detail.", "choices": ["pay", "make", "give", "do"], "answer": 0, "explanation": "Collocation: pay attention." },
+    { "id": "v_col_06", "skill": "vocabulary", "topic": "vocab_collocations", "cefr": "B1", "difficulty": 0.46, "question": "He ___ his homework every evening.", "choices": ["does", "makes", "takes", "plays"], "answer": 0, "explanation": "Collocation: do homework." },
+
+    { "id": "v_acad_01", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B1", "difficulty": 0.50, "question": "The results ___ that the theory is correct.", "choices": ["indicate", "invent", "ignore", "imagine"], "answer": 0, "explanation": "indicate = show / suggest." },
+    { "id": "v_acad_02", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B2", "difficulty": 0.60, "question": "We need to ___ the data before drawing conclusions.", "choices": ["analyze", "apologize", "arrive", "arrange"], "answer": 0, "explanation": "analyze = examine in detail." },
+    { "id": "v_acad_03", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B2", "difficulty": 0.62, "question": "Her argument was based on solid ___.", "choices": ["evidence", "entrance", "emotion", "equipment"], "answer": 0, "explanation": "evidence = facts supporting a claim." },
+    { "id": "v_acad_04", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B2", "difficulty": 0.64, "question": "The study has several ___, such as a small sample size.", "choices": ["limitations", "celebrations", "decorations", "destinations"], "answer": 0, "explanation": "limitations = weaknesses / constraints." },
+    { "id": "v_acad_05", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B2", "difficulty": 0.66, "question": "The two variables show a strong ___.", "choices": ["correlation", "celebration", "conversation", "construction"], "answer": 0, "explanation": "correlation = a mutual relationship." },
+    { "id": "v_acad_06", "skill": "vocabulary", "topic": "vocab_academic", "cefr": "B1", "difficulty": 0.52, "question": "The author ___ that more research is needed.", "choices": ["concludes", "confuses", "constructs", "consumes"], "answer": 0, "explanation": "conclude = decide / state at the end." }
+  ]
+}

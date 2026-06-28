@@ -13,10 +13,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "data" / "assessment" / "grammar.json"
-)
+DEFAULT_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "assessment"
 
 
 @dataclass(frozen=True)
@@ -30,10 +27,12 @@ class Question:
     choices: tuple[str, ...]
     answer: int            # index into choices — server-side only, never sent to the client
     explanation: str
+    script: str = ""       # spoken audio script (Listening); client speaks it, never shows it
 
     def public(self) -> dict:
-        """What the client may see — never the answer key."""
-        return {
+        """What the client may see — never the answer key. For Listening, ``script`` is
+        included so the browser can speak it (path A); it is played, not displayed."""
+        d = {
             "id": self.id,
             "skill": self.skill,
             "topic": self.topic,
@@ -41,6 +40,9 @@ class Question:
             "question": self.question,
             "choices": list(self.choices),
         }
+        if self.script:
+            d["script"] = self.script
+        return d
 
 
 def _validate(bank: tuple[Question, ...]) -> None:
@@ -56,23 +58,28 @@ def _validate(bank: tuple[Question, ...]) -> None:
 
 @lru_cache(maxsize=None)
 def load_bank(path: str | None = None) -> tuple[Question, ...]:
-    """Load and validate the question bank (cached — it is static content)."""
-    p = Path(path) if path else DEFAULT_PATH
-    data = json.loads(p.read_text(encoding="utf-8"))
-    bank = tuple(
-        Question(
-            id=q["id"],
-            skill=q.get("skill", "grammar"),
-            topic=q["topic"],
-            cefr=q["cefr"],
-            difficulty=float(q.get("difficulty", 0.5)),
-            question=q["question"],
-            choices=tuple(q["choices"]),
-            answer=int(q["answer"]),
-            explanation=q.get("explanation", ""),
-        )
-        for q in data["questions"]
-    )
+    """Load and validate the question bank (cached — static content). With no path,
+    merges every ``*.json`` under data/assessment/ (grammar + vocabulary + reading + …)."""
+    files = [Path(path)] if path else sorted(DEFAULT_DIR.glob("*.json"))
+    items: list[Question] = []
+    for p in files:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        for q in data["questions"]:
+            items.append(
+                Question(
+                    id=q["id"],
+                    skill=q.get("skill", "grammar"),
+                    topic=q["topic"],
+                    cefr=q["cefr"],
+                    difficulty=float(q.get("difficulty", 0.5)),
+                    question=q["question"],
+                    choices=tuple(q["choices"]),
+                    answer=int(q["answer"]),
+                    explanation=q.get("explanation", ""),
+                    script=q.get("script", ""),
+                )
+            )
+    bank = tuple(items)
     _validate(bank)
     return bank
 

@@ -194,13 +194,18 @@ layer is gated by **usage, not time** (Rule 0).
   coverage + review) · stop-by-confidence · session is event-sourced (asked questions
   derived from events) · `POST /assessment/start` + `/assessment/answer` grade server-side
   and feed the Knowledge Projection. Doesn't touch the core — it just produces
-  higher-quality events. *Bank: 110 items, all 21 grammar topics (AI-authored, needs human
-  review).* **Narrowing selector (v2.2):** estimate ability θ on the CEFR scale (up/down
-  staircase), ask only questions near θ (skip already-confident topics), so one run hones
-  in on the student's level instead of spreading 1/topic. On finish, levels below the
-  result are marked known (evidence-based placement) so the CEFR projection and the plan
-  reflect it. `estimated_level` (θ, working level) can lead the CEFR projection
-  (mastered-up-to) by ~1 level.
+  higher-quality events. **Multi-skill (v2.3):** four objectively-gradable skills —
+  **Grammar (110), Vocabulary (24), Reading (12), Listening (9)** — 155 items across 32
+  topics, content split per skill under `data/curriculum/` + `data/assessment/`
+  (AI-authored, needs human review). **Listening** is Reading + audio: same MCQ grading
+  (a fact, no ASR), the item carries a `script` the **browser speaks via TTS** (path A —
+  transcript reaches the client; path B = pre-generated audio files keeps it server-side). **Narrowing, per skill:** each skill has its own ability estimate θ (up/down
+  staircase) and its own question budget; the selector asks only questions near that
+  skill's θ, so each skill is measured separately and yields its own CEFR level → a
+  per-skill **Knowledge Graph**. On finish, levels below each skill's result are marked
+  known (evidence-based placement). `estimated_level` (θ, working level) can lead the CEFR
+  projection (mastered-up-to) by ~1 level. **Deferred (need infra, Coach v4):** Speaking
+  (audio + ASR + pronunciation scoring), Writing (LLM rubric — a hypothesis, not a fact).
 - **🚧 Lesson Engine v2.1 — *linear lesson shipped*.** `build_lesson(topic, knowledge,
   bank)` is a *computed* lesson (Rule 5, not stored): warm-up → explanation → guided →
   independent → quiz → summary. Exercises are reused from the question bank, so a lesson's

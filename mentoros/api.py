@@ -236,13 +236,14 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
     curriculum = load_curriculum()
     step = next_step(events, curriculum, bank)
     if step.done and not any(e.type == ASSESSMENT_COMPLETED for e in events):
+        from mentoros.assessment.adaptive import skills_in
         from mentoros.assessment.selector import estimate_theta
 
-        # The test settled at this level — assume the levels below it are known
-        # (evidence-based placement), so the CEFR projection and the plan reflect it.
-        target_rank = round(estimate_theta(events, bank))
+        # Each skill settled at its own level — assume the levels below it (for that
+        # skill) are known (evidence-based placement), so the projection + plan reflect it.
+        targets = {s: round(estimate_theta(events, bank, s)) for s in skills_in(bank)}
         for t in curriculum.topics:
-            if t.level_rank < target_rank:
+            if t.level_rank < targets.get(t.skill, 0):
                 store.record(PLACEMENT_PASSED, {"topic": t.id})
         store.record(ASSESSMENT_COMPLETED, {})
 

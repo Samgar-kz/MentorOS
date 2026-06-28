@@ -1,0 +1,10 @@
+{
+  "name": "Reading (sub-skills)",
+  "version": 1,
+  "topics": [
+    { "id": "reading_detail",          "title": "Reading: Detail",            "level": "A2", "skill": "reading", "requires": [] },
+    { "id": "reading_main_idea",       "title": "Reading: Main Idea",         "level": "B1", "skill": "reading", "requires": [] },
+    { "id": "reading_vocab_in_context","title": "Reading: Vocab in Context",  "level": "B1", "skill": "reading", "requires": [] },
+    { "id": "reading_inference",       "title": "Reading: Inference",         "level": "B2", "skill": "reading", "requires": [] }
+  ]
+}

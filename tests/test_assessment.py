@@ -118,38 +118,51 @@ def test_start_returns_a_question_without_the_answer_key(client):
     assert s["question"]["choices"]
 
 
-def test_full_adaptive_loop_narrows_and_locks_a_level(client):
+def test_full_adaptive_loop_multi_skill_locks_a_level(client):
     answers = {q.id: q.answer for q in BANK}
     s = client.post("/assessment/start").json()
+    skills_seen = set()
     seen = 0
-    while not s["done"] and seen < 40:
+    while not s["done"] and seen < 60:
         qid = s["question"]["id"]
+        if s.get("skill"):
+            skills_seen.add(s["skill"])
         r = client.post("/assessment/answer", json={"question": qid, "choice": answers[qid]}).json()
         assert r["correct"] is True
-        s = {"done": r["done"], "question": r["question"]}
+        s = {"done": r["done"], "question": r["question"], "skill": r.get("skill")}
         seen += 1
     assert s["done"] is True
-    assert seen <= 30  # the cap; narrowing concentrates rather than touching all 110
+    assert seen <= 45  # overall cap
+    assert skills_seen == {"grammar", "vocabulary", "reading", "listening"}  # every skill measured
     plan = client.get("/plan").json()
     assert plan["onboarded"] is True
-    # All correct -> the test narrows up and locks a level (placement on finish).
-    assert plan["cefr_level"] is not None
+    assert plan["cefr_level"] is not None  # all correct -> locks a level (placement on finish)
 
 
 def test_wrong_answers_narrow_down_to_a1(client):
     s = client.post("/assessment/start").json()
-    last_level = None
+    last = None
     seen = 0
-    while not s["done"] and seen < 40:
+    while not s["done"] and seen < 60:
         qid = s["question"]["id"]
         q = by_id(BANK)[qid]
         wrong = (q.answer + 1) % len(q.choices)
-        r = client.post("/assessment/answer", json={"question": qid, "choice": wrong}).json()
-        last_level = r["estimated_level"]
-        s = {"done": r["done"], "question": r["question"]}
+        last = client.post("/assessment/answer", json={"question": qid, "choice": wrong}).json()
+        s = {"done": last["done"], "question": last["question"]}
         seen += 1
     assert s["done"] is True
-    assert last_level == "A1"  # consistently wrong -> the staircase floors at A1
+    # Consistently wrong -> every skill's staircase floors at A1.
+    assert all(lvl == "A1" for lvl in last["levels"].values())
+
+
+def test_listening_questions_carry_a_script_but_never_the_answer():
+    listening = [q for q in BANK if q.skill == "listening"]
+    assert listening, "expected listening questions in the bank"
+    for q in listening:
+        assert q.script, f"{q.id} should have a spoken script"
+        pub = q.public()
+        assert pub.get("script") == q.script   # client needs it (TTS, path A)
+        assert "answer" not in pub             # but never the answer key
 
 
 def test_answer_to_unknown_question_is_404(client):

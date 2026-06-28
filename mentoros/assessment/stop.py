@@ -11,7 +11,8 @@ from __future__ import annotations
 from mentoros.assessment.question_bank import Question
 
 CONFIDENCE_STOP = 0.90   # stop probing a topic once we are this sure of its mastery
-MAX_QUESTIONS = 30       # safety cap; narrowing usually stops earlier when the band settles
+MAX_QUESTIONS = 45       # overall safety cap across all skills
+MAX_PER_SKILL = 12       # cap per skill, so one skill can't hog the whole run
 
 
 def should_stop(asked_count: int, next_question: Question | None) -> bool:
