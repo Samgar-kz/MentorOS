@@ -194,10 +194,20 @@ layer is gated by **usage, not time** (Rule 0).
   coverage + review) · stop-by-confidence · session is event-sourced (asked questions
   derived from events) · `POST /assessment/start` + `/assessment/answer` grade server-side
   and feed the Knowledge Projection. Doesn't touch the core — it just produces
-  higher-quality events. *Bank: 110 items covering all 21 grammar topics (~6 each at
-  A1–B1 so a topic can lock, ~4 at B2–C1); AI-authored, needs human review. With enough
-  evidence the CEFR projection now locks (e.g. all A1+A2 correct → A2). Next: a "narrowing"
-  selector + per-skill cap so a single run hones in on the level boundary (CAT-style).*
+  higher-quality events. *Bank: 110 items, all 21 grammar topics (AI-authored, needs human
+  review).* **Narrowing selector (v2.2):** estimate ability θ on the CEFR scale (up/down
+  staircase), ask only questions near θ (skip already-confident topics), so one run hones
+  in on the student's level instead of spreading 1/topic. On finish, levels below the
+  result are marked known (evidence-based placement) so the CEFR projection and the plan
+  reflect it. `estimated_level` (θ, working level) can lead the CEFR projection
+  (mastered-up-to) by ~1 level.
+- **🚧 Lesson Engine v2.1 — *linear lesson shipped*.** `build_lesson(topic, knowledge,
+  bank)` is a *computed* lesson (Rule 5, not stored): warm-up → explanation → guided →
+  independent → quiz → summary. Exercises are reused from the question bank, so a lesson's
+  answers are `grammar_question` facts that update Knowledge — **doing a lesson is also
+  continuous assessment** (Rule 6). `POST /lesson/start` · `/lesson/answer` · `/lesson/finish`
+  (returns the topic's updated mastery/confidence — the visible payoff). *Next: Lesson
+  Runtime (conditional transitions) → Lesson Graph (full adaptive navigation).*
 - **🚧 Teacher v3 — *the real personal teacher*.** Consumes Knowledge Projection +
   Planner + today's lesson; explains, questions, adapts, gives examples, corrects.
   Makes **no architectural decisions** — uses what the system already computed.

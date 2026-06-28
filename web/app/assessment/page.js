@@ -74,7 +74,7 @@ export default function Assessment() {
       {!done && q && (
         <div style={{ margin: "20px 0" }}>
           <p style={{ color: "#999", fontSize: 13 }}>
-            Question {step.asked_count + 1} · {q.cefr}
+            Question {step.asked_count + 1} · {q.cefr} · honing in: {step.estimated_level}
           </p>
           <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 20 }}>
             <div style={{ fontSize: 19, marginBottom: 12 }}>{q.question}</div>
@@ -121,15 +121,10 @@ export default function Assessment() {
         <div style={{ margin: "20px 0" }}>
           <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 24, textAlign: "center" }}>
             <div style={{ color: "#999", fontSize: 13 }}>Estimated level</div>
-            <div style={{ fontSize: 40, fontWeight: 800, margin: "2px 0" }}>{step.cefr || "—"}</div>
-            {step.cefr ? (
-              <div style={{ color: "#666" }}>{step.asked_count} questions · computed from your answers</div>
-            ) : (
-              <div style={{ color: "#666" }}>
-                {step.asked_count} questions across {touched.length} topics — not enough coverage
-                to lock a CEFR level yet. Per-topic mastery &amp; confidence below.
-              </div>
-            )}
+            <div style={{ fontSize: 40, fontWeight: 800, margin: "2px 0" }}>{step.estimated_level}</div>
+            <div style={{ color: "#666" }}>
+              {step.asked_count} questions · the test honed in on your level
+            </div>
           </div>
 
           <h2 style={{ fontSize: 16, marginTop: 20 }}>What we learned</h2>

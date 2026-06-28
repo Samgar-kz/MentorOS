@@ -19,6 +19,8 @@ from pydantic import BaseModel
 from mentoros.events import (
     ASSESSMENT_COMPLETED,
     GRAMMAR_QUESTION,
+    LESSON_FINISHED,
+    LESSON_STARTED,
     PLACEMENT_PASSED,
     SESSION_FINISHED,
     SESSION_STARTED,
@@ -98,6 +100,20 @@ class AssessmentAnswerIn(BaseModel):
     choice: int
     latency: float = 0.0
     confidence: int | None = None  # optional self-rated confidence (1-5)
+
+
+class LessonStartIn(BaseModel):
+    topic: str | None = None  # if absent, the Planner picks today's focus topic
+
+
+class LessonAnswerIn(BaseModel):
+    question: str
+    choice: int
+    latency: float = 0.0
+
+
+class LessonFinishIn(BaseModel):
+    topic: str
 
 
 class ChatIn(BaseModel):
@@ -217,11 +233,74 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
     store.record(GRAMMAR_QUESTION, payload)
 
     events = store.read_all()
-    step = next_step(events, load_curriculum(), bank)
+    curriculum = load_curriculum()
+    step = next_step(events, curriculum, bank)
     if step.done and not any(e.type == ASSESSMENT_COMPLETED for e in events):
-        store.record(ASSESSMENT_COMPLETED, {})  # finishing the test = onboarded
+        from mentoros.assessment.selector import estimate_theta
+
+        # The test settled at this level — assume the levels below it are known
+        # (evidence-based placement), so the CEFR projection and the plan reflect it.
+        target_rank = round(estimate_theta(events, bank))
+        for t in curriculum.topics:
+            if t.level_rank < target_rank:
+                store.record(PLACEMENT_PASSED, {"topic": t.id})
+        store.record(ASSESSMENT_COMPLETED, {})
 
     return {"correct": correct, "answer": q.answer, "explanation": q.explanation, **step.to_dict()}
+
+
+@app.post("/lesson/start")
+def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) -> dict:
+    """Begin a lesson on a topic (Planner's focus if none given). Returns the computed
+    lesson; records lesson_started. The lesson itself is never stored (Rule 5)."""
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge
+    from mentoros.lesson import build_lesson
+    from mentoros.assessment.question_bank import load_bank
+    from mentoros.planner import plan_today
+
+    events = store.read_all()
+    curriculum = load_curriculum()
+    topic = body.topic
+    if topic is None:
+        focus = plan_today(events).focus
+        topic = focus[0]["id"] if focus else None
+    if topic is None or topic not in curriculum.by_id:
+        return {"lesson": None, "message": "Nothing to learn right now."}
+
+    store.record(LESSON_STARTED, {"topic": topic})
+    lesson = build_lesson(topic, build_knowledge(events, curriculum), load_bank(), curriculum)
+    return {"lesson": lesson.to_dict()}
+
+
+@app.post("/lesson/answer")
+def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) -> dict:
+    """Grade a lesson exercise server-side and record it as a fact (feeds Knowledge)."""
+    from mentoros.assessment.question_bank import by_id, load_bank
+    from mentoros.assessment.session import grade
+
+    q = by_id(load_bank()).get(body.question)
+    if q is None:
+        raise HTTPException(status_code=404, detail="unknown question")
+    correct = grade(q, body.choice)
+    store.record(
+        GRAMMAR_QUESTION,
+        {"topic": q.topic, "correct": correct, "question": q.id, "latency": body.latency, "source": "lesson"},
+    )
+    return {"correct": correct, "answer": q.answer, "explanation": q.explanation}
+
+
+@app.post("/lesson/finish")
+def lesson_finish(body: LessonFinishIn, store: EventStore = Depends(get_store)) -> dict:
+    """Mark the lesson finished and return the topic's updated knowledge (the payoff:
+    you see mastery/confidence change)."""
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge
+
+    store.record(LESSON_FINISHED, {"topic": body.topic})
+    curriculum = load_curriculum()
+    k = build_knowledge(store.read_all(), curriculum).get(body.topic)
+    return {"topic": body.topic, "knowledge": k.to_dict() if k else None}
 
 
 @app.post("/placement")

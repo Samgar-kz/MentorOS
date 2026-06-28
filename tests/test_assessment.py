@@ -9,9 +9,9 @@ from fastapi.testclient import TestClient
 from mentoros.api import app, get_store
 from mentoros.assessment.adaptive import next_step
 from mentoros.assessment.question_bank import by_id, load_bank
-from mentoros.assessment.selector import select_next
+from mentoros.assessment.selector import estimate_theta, select_next
 from mentoros.assessment.session import grade
-from mentoros.curriculum import load_curriculum
+from mentoros.curriculum import CEFR_ORDER, load_curriculum
 from mentoros.events import GRAMMAR_QUESTION, Event, EventStore
 from mentoros.knowledge import build_knowledge
 
@@ -51,24 +51,33 @@ def test_grade():
     assert grade(q, (q.answer + 1) % len(q.choices)) is False
 
 
-# --- selector / stop -------------------------------------------------------- #
-def test_selector_returns_unasked_question_first():
+# --- selector / stop (narrowing) ------------------------------------------- #
+def test_selector_asks_near_theta():
     knowledge = build_knowledge([], CUR)
-    q = select_next(BANK, knowledge, asked_ids=set())
-    assert q is not None and q.id not in set()
+    q = select_next(BANK, knowledge, set(), theta=2.0)  # B1
+    assert q is not None
+    assert abs(CEFR_ORDER[q.cefr] - 2.0) <= 1.0  # within the band around B1
 
 
-def test_selector_skips_already_asked():
+def test_selector_low_theta_picks_low_level():
     knowledge = build_knowledge([], CUR)
-    asked = {q.id for q in BANK[:-1]}  # all but the last
-    q = select_next(BANK, knowledge, asked_ids=asked)
-    assert q.id == BANK[-1].id
+    q = select_next(BANK, knowledge, set(), theta=0.2)  # ~A1
+    assert q is not None
+    assert CEFR_ORDER[q.cefr] <= 1  # A1 or A2, never C1
 
 
 def test_selector_returns_none_when_everything_asked():
     knowledge = build_knowledge([], CUR)
     asked = {q.id for q in BANK}
-    assert select_next(BANK, knowledge, asked_ids=asked) is None
+    assert select_next(BANK, knowledge, asked, theta=2.0) is None
+
+
+def test_estimate_theta_moves_with_outcomes():
+    b1 = [q for q in BANK if q.cefr == "B1"][:3]
+    correct = [Event(GRAMMAR_QUESTION, {"topic": q.topic, "correct": True, "question": q.id}, float(i), f"c{i}") for i, q in enumerate(b1)]
+    wrong = [Event(GRAMMAR_QUESTION, {"topic": q.topic, "correct": False, "question": q.id}, float(i), f"w{i}") for i, q in enumerate(b1)]
+    assert estimate_theta(correct, BANK) > 2.0  # right answers push ability up
+    assert estimate_theta(wrong, BANK) < 2.0    # wrong answers push it down
 
 
 # --- adaptive step ---------------------------------------------------------- #
@@ -109,24 +118,38 @@ def test_start_returns_a_question_without_the_answer_key(client):
     assert s["question"]["choices"]
 
 
-def test_full_adaptive_loop_grades_records_and_onboards(client):
+def test_full_adaptive_loop_narrows_and_locks_a_level(client):
     answers = {q.id: q.answer for q in BANK}
     s = client.post("/assessment/start").json()
     seen = 0
-    while not s["done"] and seen < 30:
+    while not s["done"] and seen < 40:
         qid = s["question"]["id"]
         r = client.post("/assessment/answer", json={"question": qid, "choice": answers[qid]}).json()
         assert r["correct"] is True
         s = {"done": r["done"], "question": r["question"]}
         seen += 1
     assert s["done"] is True
-    assert seen == 20  # stops at the question cap, not after the whole (110-item) bank
-    # Finishing the diagnostic satisfies onboarding (a computed fact).
+    assert seen <= 30  # the cap; narrowing concentrates rather than touching all 110
     plan = client.get("/plan").json()
     assert plan["onboarded"] is True
-    # Exactly 20 answers were recorded and fed the Knowledge Projection.
-    k = {t["topic"]: t for t in client.get("/knowledge").json()["topics"]}
-    assert sum(t["sample_size"] for t in k.values()) == 20
+    # All correct -> the test narrows up and locks a level (placement on finish).
+    assert plan["cefr_level"] is not None
+
+
+def test_wrong_answers_narrow_down_to_a1(client):
+    s = client.post("/assessment/start").json()
+    last_level = None
+    seen = 0
+    while not s["done"] and seen < 40:
+        qid = s["question"]["id"]
+        q = by_id(BANK)[qid]
+        wrong = (q.answer + 1) % len(q.choices)
+        r = client.post("/assessment/answer", json={"question": qid, "choice": wrong}).json()
+        last_level = r["estimated_level"]
+        s = {"done": r["done"], "question": r["question"]}
+        seen += 1
+    assert s["done"] is True
+    assert last_level == "A1"  # consistently wrong -> the staircase floors at A1
 
 
 def test_answer_to_unknown_question_is_404(client):

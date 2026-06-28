@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 
 from mentoros.assessment.question_bank import Question, load_bank
-from mentoros.assessment.selector import select_next
+from mentoros.assessment.selector import estimate_theta, level_for_theta, select_next
 from mentoros.assessment.session import asked_ids
 from mentoros.assessment.stop import should_stop
 from mentoros.curriculum import Curriculum
@@ -21,7 +21,8 @@ class AssessmentStep:
     done: bool
     question: dict | None        # next question (public view, no answer key) or None
     asked_count: int
-    cefr: str | None             # CEFR projection so far
+    estimated_level: str         # current CEFR estimate from the staircase (θ)
+    cefr: str | None             # CEFR projection from mastered topics (may lag θ)
     knowledge: list[dict]        # per-topic mastery/confidence snapshot
 
     def to_dict(self) -> dict:
@@ -37,12 +38,14 @@ def next_step(
     bank = bank if bank is not None else load_bank()
     knowledge = build_knowledge(events, curriculum)
     asked = asked_ids(events)
-    nxt = select_next(bank, knowledge, asked, review_topics)
+    theta = estimate_theta(events, bank)
+    nxt = select_next(bank, knowledge, asked, theta, review_topics)
     done = should_stop(len(asked), nxt)
     return AssessmentStep(
         done=done,
         question=None if done or nxt is None else nxt.public(),
         asked_count=len(asked),
+        estimated_level=level_for_theta(theta),
         cefr=estimate_cefr(knowledge, curriculum),
         knowledge=[k.to_dict() for k in knowledge.values()],
     )

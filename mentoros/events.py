@@ -31,6 +31,8 @@ V1_EVENT_TYPES = frozenset(
 GRAMMAR_QUESTION = "grammar_question"  # payload: {topic, correct: bool} — folds into topic mastery
 PLACEMENT_PASSED = "placement_passed"  # payload: {topic, level} — diagnostic placement: a known topic
 ASSESSMENT_COMPLETED = "assessment_completed"  # payload: {} — pure onboarding marker (no stored level)
+LESSON_STARTED = "lesson_started"    # payload: {topic} — a lesson was begun
+LESSON_FINISHED = "lesson_finished"  # payload: {topic} — a lesson was completed
 
 
 @dataclass(frozen=True)

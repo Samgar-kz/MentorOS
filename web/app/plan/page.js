@@ -115,14 +115,14 @@ export default function Plan() {
               </div>
 
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                <Link href="/chat" style={{ ...btn("#06c"), textDecoration: "none" }}>
-                  Learn with tutor →
+                <Link href="/lesson" style={{ ...btn("#0a7"), textDecoration: "none" }}>
+                  Start lesson →
                 </Link>
-                <button disabled={busy} onClick={() => answerTopic(lesson.id, true)} style={btn("#0a7")}>
-                  I got it ✓
-                </button>
-                <button disabled={busy} onClick={() => answerTopic(lesson.id, false)} style={btn("#c33")}>
-                  Missed it ✗
+                <Link href="/chat" style={{ ...btn("#06c"), textDecoration: "none" }}>
+                  Ask tutor
+                </Link>
+                <button disabled={busy} onClick={() => answerTopic(lesson.id, true)} style={btn("#888")}>
+                  Mark known ✓
                 </button>
               </div>
               <p style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
