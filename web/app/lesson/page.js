@@ -20,6 +20,8 @@ export default function LessonPage() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [empty, setEmpty] = useState(false);
+  const [attempt, setAttempt] = useState(1);          // which try (Runtime caps retries)
+  const [teacherExplain, setTeacherExplain] = useState(null); // LLM-narrated explanation
 
   const start = useCallback(async () => {
     setI(0); setFeedback(null); setResult(null); setError(null); setEmpty(false);
@@ -36,18 +38,36 @@ export default function LessonPage() {
 
   useEffect(() => { start(); }, [start]);
 
+  // When the student reaches the explanation step, let the Teacher narrate it (LLM).
+  useEffect(() => {
+    if (!lesson) return;
+    const cur = lesson.steps[i];
+    if (cur && cur.kind === "explanation") {
+      setTeacherExplain(null);
+      fetch(`${API}/lesson/explain`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: lesson.topic }),
+      }).then((r) => r.json()).then((d) => setTeacherExplain(d.teacher)).catch(() => {});
+    }
+  }, [lesson, i]);
+
   async function answer(choice) {
     if (busy || feedback) return;
     setBusy(true);
     try {
       const r = await fetch(`${API}/lesson/answer`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: step.question.id, choice }),
+        body: JSON.stringify({ question: step.question.id, choice, attempt }),
       }).then((r) => r.json());
       setFeedback({ ...r, choice });
     } catch (e) {
       setError(`Can't reach the API at ${API}.`);
     } finally { setBusy(false); }
+  }
+
+  function retry() {
+    setFeedback(null);
+    setAttempt((a) => a + 1);  // same question, next try
   }
 
   async function finish() {
@@ -63,6 +83,8 @@ export default function LessonPage() {
 
   function next() {
     setFeedback(null);
+    setAttempt(1);
+    setTeacherExplain(null);
     if (i + 1 < lesson.steps.length) setI(i + 1);
     else finish();
   }
@@ -105,7 +127,15 @@ export default function LessonPage() {
 
           {!isExercise && (
             <>
-              <div style={{ whiteSpace: "pre-wrap", fontSize: 16, lineHeight: 1.5 }}>{step.prose}</div>
+              {step.kind === "explanation" && teacherExplain ? (
+                <div>
+                  <div style={{ color: "#06c", fontWeight: 600, fontSize: 13, marginBottom: 4 }}>👩‍🏫 {teacherExplain.name}</div>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 16, lineHeight: 1.5 }}>{teacherExplain.feedback}</div>
+                  {teacherExplain.hint && <div style={{ color: "#555", marginTop: 8 }}>💡 {teacherExplain.hint}</div>}
+                </div>
+              ) : (
+                <div style={{ whiteSpace: "pre-wrap", fontSize: 16, lineHeight: 1.5 }}>{step.prose}</div>
+              )}
               <button onClick={next} disabled={busy} style={{ ...btn("#06c"), marginTop: 16 }}>
                 {i + 1 < lesson.steps.length ? "Continue →" : "Finish"}
               </button>
@@ -122,7 +152,8 @@ export default function LessonPage() {
               )}
               <div style={{ fontSize: 18, marginBottom: 12 }}>{step.question.question}</div>
               {step.question.choices.map((c, idx) => {
-                const isAns = feedback && idx === feedback.answer;
+                const reveal = feedback && !feedback.should_retry;  // don't reveal the answer on a retry
+                const isAns = reveal && idx === feedback.answer;
                 const isWrong = feedback && idx === feedback.choice && !feedback.correct;
                 return (
                   <button key={idx} onClick={() => answer(idx)} disabled={busy || !!feedback}
@@ -141,10 +172,24 @@ export default function LessonPage() {
                   <div style={{ color: feedback.correct ? "#0a7" : "#c33", fontWeight: 600 }}>
                     {feedback.correct ? "Correct ✓" : "Not quite ✗"}
                   </div>
-                  {feedback.explanation && <div style={{ color: "#555", fontSize: 14, marginTop: 4 }}>{feedback.explanation}</div>}
-                  <button onClick={next} disabled={busy} style={{ ...btn("#06c"), marginTop: 12 }}>
-                    {i + 1 < lesson.steps.length ? "Continue →" : "Finish"}
-                  </button>
+                  {feedback.teacher && (
+                    <div style={{ background: "#f5f8ff", borderRadius: 8, padding: 10, marginTop: 8 }}>
+                      <div style={{ color: "#06c", fontWeight: 600, fontSize: 13 }}>👩‍🏫 {feedback.teacher.name}</div>
+                      <div style={{ fontSize: 14, marginTop: 2 }}>{feedback.teacher.feedback}</div>
+                      {feedback.teacher.hint && <div style={{ color: "#555", fontSize: 14, marginTop: 4 }}>💡 {feedback.teacher.hint}</div>}
+                      {feedback.teacher.encouragement && <div style={{ color: "#0a7", fontSize: 13, marginTop: 4 }}>{feedback.teacher.encouragement}</div>}
+                    </div>
+                  )}
+                  {!feedback.should_retry && feedback.explanation && (
+                    <div style={{ color: "#555", fontSize: 14, marginTop: 8 }}>{feedback.explanation}</div>
+                  )}
+                  {feedback.should_retry ? (
+                    <button onClick={retry} disabled={busy} style={{ ...btn("#f0ad4e"), marginTop: 12 }}>Try again</button>
+                  ) : (
+                    <button onClick={next} disabled={busy} style={{ ...btn("#06c"), marginTop: 12 }}>
+                      {i + 1 < lesson.steps.length ? "Continue →" : "Finish"}
+                    </button>
+                  )}
                 </div>
               )}
             </>

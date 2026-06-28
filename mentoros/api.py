@@ -110,6 +110,11 @@ class LessonAnswerIn(BaseModel):
     question: str
     choice: int
     latency: float = 0.0
+    attempt: int = 1  # which try this is (Runtime allows a limited number of retries)
+
+
+class LessonExplainIn(BaseModel):
+    topic: str
 
 
 class LessonFinishIn(BaseModel):
@@ -274,13 +279,28 @@ def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) ->
     return {"lesson": lesson.to_dict()}
 
 
+def _weak_areas(knowledge, curriculum, skill: str, limit: int = 3) -> list[str]:
+    """Titles of started-but-not-known topics in a skill — context for the Teacher."""
+    return [
+        curriculum.by_id[tid].title
+        for tid, kn in knowledge.items()
+        if kn.skill == skill and not kn.known and kn.sample_size > 0
+    ][:limit]
+
+
 @app.post("/lesson/answer")
 def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) -> dict:
-    """Grade a lesson exercise server-side and record it as a fact (feeds Knowledge)."""
+    """Grade a lesson exercise server-side, record it as a fact (feeds Knowledge), then
+    let the Teacher (LLM adapter) give feedback. The Runtime — not the model — decides
+    whether to retry."""
     from mentoros.assessment.question_bank import by_id, load_bank
     from mentoros.assessment.session import grade
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge
+    from mentoros.teacher import TeacherContext, get_teacher, load_persona, runtime_should_retry
 
-    q = by_id(load_bank()).get(body.question)
+    bank = load_bank()
+    q = by_id(bank).get(body.question)
     if q is None:
         raise HTTPException(status_code=404, detail="unknown question")
     correct = grade(q, body.choice)
@@ -288,7 +308,46 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
         GRAMMAR_QUESTION,
         {"topic": q.topic, "correct": correct, "question": q.id, "latency": body.latency, "source": "lesson"},
     )
-    return {"correct": correct, "answer": q.answer, "explanation": q.explanation}
+
+    curriculum = load_curriculum()
+    knowledge = build_knowledge(store.read_all(), curriculum)
+    topic = curriculum.by_id[q.topic]
+    k = knowledge.get(q.topic)
+    ctx = TeacherContext(
+        topic_title=topic.title, level=topic.level, mastery=(k.mastery if k else 0.5),
+        weak_areas=_weak_areas(knowledge, curriculum, topic.skill), step_kind="guided",
+        question=q.question, choices=list(q.choices),
+        student_answer=q.choices[body.choice] if 0 <= body.choice < len(q.choices) else None,
+        correct=correct,
+    )
+    t = get_teacher().teach(ctx)
+    return {
+        "correct": correct, "answer": q.answer, "explanation": q.explanation,
+        "teacher": {"name": load_persona()["name"], "feedback": t.feedback, "hint": t.hint, "encouragement": t.encouragement},
+        "should_retry": runtime_should_retry(correct, body.attempt),  # Runtime decides, not the model
+    }
+
+
+@app.post("/lesson/explain")
+def lesson_explain(body: LessonExplainIn, store: EventStore = Depends(get_store)) -> dict:
+    """The Teacher narrates the explanation step for a topic (LLM adapter; offline stub
+    otherwise). Pure content — no routing."""
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge
+    from mentoros.teacher import TeacherContext, get_teacher, load_persona
+
+    curriculum = load_curriculum()
+    if body.topic not in curriculum.by_id:
+        raise HTTPException(status_code=404, detail="unknown topic")
+    knowledge = build_knowledge(store.read_all(), curriculum)
+    topic = curriculum.by_id[body.topic]
+    k = knowledge.get(body.topic)
+    ctx = TeacherContext(
+        topic_title=topic.title, level=topic.level, mastery=(k.mastery if k else 0.5),
+        weak_areas=_weak_areas(knowledge, curriculum, topic.skill), step_kind="explanation",
+    )
+    t = get_teacher().teach(ctx)
+    return {"teacher": {"name": load_persona()["name"], "feedback": t.feedback, "hint": t.hint, "encouragement": t.encouragement}}
 
 
 @app.post("/lesson/finish")

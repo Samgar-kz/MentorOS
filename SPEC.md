@@ -213,9 +213,15 @@ layer is gated by **usage, not time** (Rule 0).
   continuous assessment** (Rule 6). `POST /lesson/start` · `/lesson/answer` · `/lesson/finish`
   (returns the topic's updated mastery/confidence — the visible payoff). *Next: Lesson
   Runtime (conditional transitions) → Lesson Graph (full adaptive navigation).*
-- **🚧 Teacher v3 — *the real personal teacher*.** Consumes Knowledge Projection +
-  Planner + today's lesson; explains, questions, adapts, gives examples, corrects.
-  Makes **no architectural decisions** — uses what the system already computed.
+- **🚧 Teacher v3 — *live teacher, in lessons*.** Split into three responsibilities:
+  **Lesson Engine** (deterministic steps) → **Teacher Runtime** (owns ALL routing:
+  retry vs advance, when to stop — `runtime_should_retry`, max retries) → **LLM Adapter**
+  (`mentoros/teacher.py`: `StubTeacher`/`OpenAITeacher` under a strict contract —
+  `feedback / hint / encouragement`; produces *content only*, never routes). A static
+  **Persona** (`data/teacher/persona.json`) gives one teaching style (patient, Socratic,
+  never reveals the answer immediately). `POST /lesson/answer` returns Teacher feedback +
+  the Runtime's retry decision; `POST /lesson/explain` narrates a step. Swap the model =
+  swap one adapter. The LLM never decides what to learn or when the lesson ends (Rule 7).
 - **🚧 Coach v4 — *the other skills*.** Reading · Listening · Speaking · Writing ·
   Vocabulary — each built on the same shape: `events → knowledge → planner → teacher`.
   The architecture is identical regardless of skill.

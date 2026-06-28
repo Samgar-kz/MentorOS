@@ -163,8 +163,9 @@ export default function Assessment() {
             </div>
           ))}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
-            <Link href="/plan" style={{ ...btn("#0a7"), textDecoration: "none" }}>See today&apos;s plan →</Link>
+          <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
+            <Link href="/lesson" style={{ ...btn("#0a7"), textDecoration: "none", fontWeight: 600 }}>Start Lesson 1 →</Link>
+            <Link href="/plan" style={{ ...btn("#06c"), textDecoration: "none" }}>See plan</Link>
             <button onClick={start} style={{ ...btn("#eee"), color: "#333" }}>Restart</button>
           </div>
         </div>
