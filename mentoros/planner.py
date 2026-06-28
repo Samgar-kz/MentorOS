@@ -120,14 +120,37 @@ def build_topic_states(
     return states_from_knowledge(build_knowledge(events, curriculum), curriculum)
 
 
+_SKILL_PREF = {"grammar": 0, "vocabulary": 1, "reading": 2, "listening": 3}
+
+
 def focus_topics(curriculum: Curriculum, states: dict[str, TopicState]) -> list[TopicState]:
-    """The learnable frontier: in-progress topics first, then newly-unlocked ones,
-    each ordered by CEFR level then curriculum order."""
+    """The learnable frontier, interleaved across skills so practice stays balanced and
+    Reading/Listening get woven into lessons (not buried behind all of Grammar). Within a
+    skill: in-progress first, then newly-unlocked, by CEFR level then curriculum order.
+    The least-practiced skill leads, so under-assessed skills surface soon."""
     learnable = [s for s in states.values() if s.status in _LEARNABLE]
     learnable.sort(
         key=lambda s: (_FOCUS_RANK[s.status], CEFR_ORDER.get(s.level, 99), curriculum.order[s.id])
     )
-    return learnable
+
+    by_skill: dict[str, list[TopicState]] = {}
+    for s in learnable:
+        by_skill.setdefault(s.skill, []).append(s)
+
+    practice = {
+        skill: sum(st.sample_size for st in states.values() if st.skill == skill)
+        for skill in by_skill
+    }
+    skill_order = sorted(by_skill, key=lambda sk: (practice[sk], _SKILL_PREF.get(sk, 99), sk))
+
+    # Round-robin: one topic from each skill per pass, least-practiced skill first.
+    queues = [by_skill[sk] for sk in skill_order]
+    out: list[TopicState] = []
+    while any(queues):
+        for q in queues:
+            if q:
+                out.append(q.pop(0))
+    return out
 
 
 def next_action(review_due: int, focus: list[TopicState]) -> Action:

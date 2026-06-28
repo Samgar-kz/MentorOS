@@ -167,14 +167,18 @@ word=maintain  correct=true  latency_ms=2100  ts=...
 
 ---
 
-## Daily flow
+## Onboarding & daily flow
 
-1. Open the app.
-2. Get today's review queue.
-3. Answer the questions.
-4. The system records events automatically.
-5. The profile is recomputed.
-6. Show the next material.
+**Day 1 stays short** (Rule 0): the onboarding test is **Grammar + Vocabulary only**
+(`ONBOARDING_SKILLS`, ~10–15 min), then the student starts learning immediately. The
+other skills are **woven into early lessons** (continuous assessment, Rule 6): the
+Planner interleaves skills and surfaces the least-practiced first, so Reading/Listening
+turn up as lessons rather than a 4-hour up-front test.
+
+1. Open the app → (first run) short Grammar + Vocabulary level check → start learning.
+2. Get today's lesson / review queue (Planner picks; skills are balanced).
+3. Answer; every answer is a fact (a lesson is also assessment, Rule 6).
+4. The profile/knowledge is recomputed; the plan adapts.
 
 No extra steps.
 

@@ -118,7 +118,7 @@ def test_start_returns_a_question_without_the_answer_key(client):
     assert s["question"]["choices"]
 
 
-def test_full_adaptive_loop_multi_skill_locks_a_level(client):
+def test_day1_onboarding_is_grammar_and_vocab_only(client):
     answers = {q.id: q.answer for q in BANK}
     s = client.post("/assessment/start").json()
     skills_seen = set()
@@ -132,8 +132,8 @@ def test_full_adaptive_loop_multi_skill_locks_a_level(client):
         s = {"done": r["done"], "question": r["question"], "skill": r.get("skill")}
         seen += 1
     assert s["done"] is True
-    assert seen <= 45  # overall cap
-    assert skills_seen == {"grammar", "vocabulary", "reading", "listening"}  # every skill measured
+    # Day-1 stays short: only Grammar + Vocabulary; Reading/Listening come via lessons.
+    assert skills_seen == {"grammar", "vocabulary"}
     plan = client.get("/plan").json()
     assert plan["onboarded"] is True
     assert plan["cefr_level"] is not None  # all correct -> locks a level (placement on finish)

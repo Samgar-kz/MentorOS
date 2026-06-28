@@ -18,6 +18,11 @@ from mentoros.knowledge import build_knowledge, estimate_cefr
 # Order skills are assessed in (any skill not listed comes after, alphabetically).
 _SKILL_ORDER = {"grammar": 0, "vocabulary": 1, "reading": 2, "listening": 3, "speaking": 4, "writing": 5}
 
+# Day-1 onboarding stays short (~Grammar + Vocabulary, ~35-45 min); the other skills are
+# woven into early lessons instead (continuous assessment, Rule 6) — so users start
+# learning sooner rather than sitting through a 4-hour test.
+ONBOARDING_SKILLS = ("grammar", "vocabulary")
+
 
 def skills_in(bank: tuple[Question, ...]) -> list[str]:
     return sorted({q.skill for q in bank}, key=lambda s: (_SKILL_ORDER.get(s, 99), s))
@@ -47,7 +52,8 @@ def next_step(
     knowledge = build_knowledge(events, curriculum)
     asked = asked_ids(events)
     per_skill = asked_count_by_skill(events, bank)
-    skills = skills_in(bank)
+    # Onboarding measures only the short Day-1 skills; the rest come through lessons.
+    skills = [s for s in skills_in(bank) if s in ONBOARDING_SKILLS]
 
     # Each skill is measured separately (its own staircase).
     levels = {s: level_for_theta(estimate_theta(events, bank, s)) for s in skills}

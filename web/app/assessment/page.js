@@ -64,8 +64,8 @@ export default function Assessment() {
       </p>
       <h1>Level check</h1>
       <p style={{ color: "#666", marginTop: -8 }}>
-        Adaptive — it asks until it&apos;s confident, then builds your plan. Your answers
-        update <em>mastery</em> and <em>confidence</em> per topic.
+        Day 1: Grammar &amp; Vocabulary (~10 min). It adapts until it&apos;s confident, then
+        builds your plan — Reading, Listening &amp; more get woven into your lessons.
       </p>
 
       {error && (

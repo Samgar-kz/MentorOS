@@ -241,12 +241,12 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
     curriculum = load_curriculum()
     step = next_step(events, curriculum, bank)
     if step.done and not any(e.type == ASSESSMENT_COMPLETED for e in events):
-        from mentoros.assessment.adaptive import skills_in
+        from mentoros.assessment.adaptive import ONBOARDING_SKILLS, skills_in
         from mentoros.assessment.selector import estimate_theta
 
-        # Each skill settled at its own level — assume the levels below it (for that
-        # skill) are known (evidence-based placement), so the projection + plan reflect it.
-        targets = {s: round(estimate_theta(events, bank, s)) for s in skills_in(bank)}
+        # Only the onboarding skills were tested — place just those (others come via lessons).
+        tested = [s for s in skills_in(bank) if s in ONBOARDING_SKILLS]
+        targets = {s: round(estimate_theta(events, bank, s)) for s in tested}
         for t in curriculum.topics:
             if t.level_rank < targets.get(t.skill, 0):
                 store.record(PLACEMENT_PASSED, {"topic": t.id})
