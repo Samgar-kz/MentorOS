@@ -11,9 +11,16 @@ from mentoros.assessment.question_bank import Question, load_bank
 from mentoros.assessment.selector import estimate_theta, level_for_theta, select_next
 from mentoros.assessment.session import asked_count_by_skill, asked_ids
 from mentoros.assessment.stop import MAX_PER_SKILL, should_stop
-from mentoros.curriculum import Curriculum
+from mentoros.curriculum import CEFR_ORDER, Curriculum
 from mentoros.events import Event
 from mentoros.knowledge import build_knowledge, estimate_cefr
+
+
+def bank_cap(bank: tuple[Question, ...], skill: str) -> int:
+    """Highest CEFR rank the bank can actually test for a skill — the level ceiling we
+    are allowed to report (no items above it = can't verify above it)."""
+    ranks = [CEFR_ORDER[q.cefr] for q in bank if q.skill == skill and q.cefr in CEFR_ORDER]
+    return max(ranks) if ranks else 5
 
 # Order skills are assessed in (any skill not listed comes after, alphabetically).
 _SKILL_ORDER = {"grammar": 0, "vocabulary": 1, "reading": 2, "listening": 3, "speaking": 4, "writing": 5}
@@ -55,8 +62,8 @@ def next_step(
     # Onboarding measures only the short Day-1 skills; the rest come through lessons.
     skills = [s for s in skills_in(bank) if s in ONBOARDING_SKILLS]
 
-    # Each skill is measured separately (its own staircase).
-    levels = {s: level_for_theta(estimate_theta(events, bank, s)) for s in skills}
+    # Each skill is measured separately (its own staircase), capped at the bank's ceiling.
+    levels = {s: level_for_theta(estimate_theta(events, bank, s), bank_cap(bank, s)) for s in skills}
 
     nxt: Question | None = None
     current_skill: str | None = None

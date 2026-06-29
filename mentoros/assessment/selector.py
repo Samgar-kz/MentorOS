@@ -48,8 +48,10 @@ def estimate_theta(
     return theta
 
 
-def level_for_theta(theta: float) -> str:
-    return _RANK_TO_LEVEL[max(0, min(5, round(theta)))]
+def level_for_theta(theta: float, cap_rank: int = 5) -> str:
+    """CEFR label for an ability estimate, capped so we never report a level above what
+    the bank can actually test (e.g. no C2 items -> never report C2)."""
+    return _RANK_TO_LEVEL[max(0, min(cap_rank, round(theta)))]
 
 
 def select_next(

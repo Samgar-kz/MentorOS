@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mentoros.api import app, get_store
-from mentoros.assessment.adaptive import next_step
+from mentoros.assessment.adaptive import bank_cap, next_step
 from mentoros.assessment.question_bank import by_id, load_bank
-from mentoros.assessment.selector import estimate_theta, select_next
+from mentoros.assessment.selector import estimate_theta, level_for_theta, select_next
 from mentoros.assessment.session import grade
 from mentoros.curriculum import CEFR_ORDER, load_curriculum
 from mentoros.events import GRAMMAR_QUESTION, Event, EventStore
@@ -70,6 +70,14 @@ def test_selector_returns_none_when_everything_asked():
     knowledge = build_knowledge([], CUR)
     asked = {q.id for q in BANK}
     assert select_next(BANK, knowledge, asked, theta=2.0) is None
+
+
+def test_estimated_level_is_capped_at_the_bank_ceiling():
+    # The grammar bank tops out at C1, so even a maxed θ must not report C2.
+    cap = bank_cap(BANK, "grammar")
+    assert cap == CEFR_ORDER["C1"]
+    assert level_for_theta(5.0, cap_rank=cap) == "C1"
+    assert level_for_theta(5.0) == "C2"  # without a cap it would overshoot
 
 
 def test_estimate_theta_moves_with_outcomes():
