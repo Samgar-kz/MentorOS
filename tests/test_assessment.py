@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from mentoros.api import app, get_store
 from mentoros.assessment.adaptive import bank_cap, next_step
-from mentoros.assessment.question_bank import by_id, load_bank
+from mentoros.assessment.question_bank import by_id, display_form, load_bank
 from mentoros.assessment.selector import estimate_theta, level_for_theta, select_next
 from mentoros.assessment.session import grade
 from mentoros.curriculum import CEFR_ORDER, load_curriculum
@@ -47,8 +47,16 @@ def test_public_view_never_leaks_the_answer():
 
 def test_grade():
     q = BANK[0]
-    assert grade(q, q.answer) is True
-    assert grade(q, (q.answer + 1) % len(q.choices)) is False
+    correct = display_form(q)[1]  # correct index in the shuffled order the client sees
+    assert grade(q, correct) is True
+    assert grade(q, (correct + 1) % len(q.choices)) is False
+
+
+def test_choices_are_shuffled_not_always_first():
+    # The fix for "the answer is always A": across the bank, the correct option lands in
+    # different positions, not always index 0.
+    positions = {display_form(q)[1] for q in BANK}
+    assert len(positions) > 1
 
 
 # --- selector / stop (narrowing) ------------------------------------------- #
@@ -127,7 +135,7 @@ def test_start_returns_a_question_without_the_answer_key(client):
 
 
 def test_day1_onboarding_is_grammar_and_vocab_only(client):
-    answers = {q.id: q.answer for q in BANK}
+    answers = {q.id: display_form(q)[1] for q in BANK}
     s = client.post("/assessment/start").json()
     skills_seen = set()
     seen = 0
@@ -154,7 +162,7 @@ def test_wrong_answers_narrow_down_to_a1(client):
     while not s["done"] and seen < 60:
         qid = s["question"]["id"]
         q = by_id(BANK)[qid]
-        wrong = (q.answer + 1) % len(q.choices)
+        wrong = (display_form(q)[1] + 1) % len(q.choices)
         last = client.post("/assessment/answer", json={"question": qid, "choice": wrong}).json()
         s = {"done": last["done"], "question": last["question"]}
         seen += 1

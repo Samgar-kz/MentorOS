@@ -7,7 +7,7 @@ only writes are the answer events themselves; everything else is recomputed.
 
 from __future__ import annotations
 
-from mentoros.assessment.question_bank import Question
+from mentoros.assessment.question_bank import Question, display_form
 from mentoros.events import GRAMMAR_QUESTION, Event
 
 
@@ -32,5 +32,6 @@ def asked_count_by_skill(events: list[Event], bank: tuple[Question, ...]) -> dic
 
 
 def grade(question: Question, choice: int) -> bool:
-    """Grade a chosen option against the answer key (server-side only)."""
-    return choice == question.answer
+    """Grade a chosen option (an index into the *shuffled* choices the client saw) against
+    the answer — using the same deterministic permutation as ``public()``."""
+    return choice == display_form(question)[1]

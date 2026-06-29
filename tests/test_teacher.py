@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mentoros.api import app, get_store
-from mentoros.assessment.question_bank import load_bank
+from mentoros.assessment.question_bank import display_form, load_bank
 from mentoros.events import EventStore
 from mentoros.teacher import (
     MAX_RETRIES,
@@ -56,13 +56,14 @@ def client(tmp_path):
 
 def test_lesson_answer_returns_teacher_and_runtime_decision(client):
     q = next(x for x in BANK if x.topic == "nouns_articles")
-    wrong = (q.answer + 1) % len(q.choices)
+    correct = display_form(q)[1]
+    wrong = (correct + 1) % len(q.choices)
     r = client.post("/lesson/answer", json={"question": q.id, "choice": wrong, "attempt": 1}).json()
     assert r["correct"] is False
     assert r["teacher"]["name"] and r["teacher"]["feedback"]   # the Teacher spoke
     assert r["should_retry"] is True                           # Runtime: first wrong -> retry
 
-    r2 = client.post("/lesson/answer", json={"question": q.id, "choice": q.answer, "attempt": 2}).json()
+    r2 = client.post("/lesson/answer", json={"question": q.id, "choice": correct, "attempt": 2}).json()
     assert r2["correct"] is True
     assert r2["should_retry"] is False                         # correct -> advance
 

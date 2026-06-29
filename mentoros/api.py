@@ -222,7 +222,7 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
     """Grade the answer server-side, record it as a fact, and return feedback + next step.
     Finishing the diagnostic also satisfies onboarding."""
     from mentoros.assessment.adaptive import next_step
-    from mentoros.assessment.question_bank import by_id, load_bank
+    from mentoros.assessment.question_bank import by_id, display_form, load_bank
     from mentoros.assessment.session import grade
     from mentoros.curriculum import load_curriculum
 
@@ -253,7 +253,7 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
                 store.record(PLACEMENT_PASSED, {"topic": t.id})
         store.record(ASSESSMENT_COMPLETED, {})
 
-    return {"correct": correct, "answer": q.answer, "explanation": q.explanation, **step.to_dict()}
+    return {"correct": correct, "answer": display_form(q)[1], "explanation": q.explanation, **step.to_dict()}
 
 
 @app.post("/lesson/start")
@@ -297,7 +297,7 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
     """Grade a lesson exercise server-side, record it as a fact (feeds Knowledge), then
     let the Teacher (LLM adapter) give feedback. The Runtime — not the model — decides
     whether to retry."""
-    from mentoros.assessment.question_bank import by_id, load_bank, load_lesson_bank
+    from mentoros.assessment.question_bank import by_id, display_form, load_bank, load_lesson_bank
     from mentoros.assessment.session import grade
     from mentoros.curriculum import load_curriculum
     from mentoros.knowledge import build_knowledge
@@ -317,16 +317,17 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
     knowledge = build_knowledge(store.read_all(), curriculum)
     topic = curriculum.by_id[q.topic]
     k = knowledge.get(q.topic)
+    shown, answer_idx = display_form(q)  # the (shuffled) options the student actually saw
     ctx = TeacherContext(
         topic_title=topic.title, level=topic.level, mastery=(k.mastery if k else 0.5),
         weak_areas=_weak_areas(knowledge, curriculum, topic.skill), step_kind="guided",
-        question=q.question, choices=list(q.choices),
-        student_answer=q.choices[body.choice] if 0 <= body.choice < len(q.choices) else None,
+        question=q.question, choices=shown,
+        student_answer=shown[body.choice] if 0 <= body.choice < len(shown) else None,
         correct=correct,
     )
     t = get_teacher().teach(ctx)
     return {
-        "correct": correct, "answer": q.answer, "explanation": q.explanation,
+        "correct": correct, "answer": answer_idx, "explanation": q.explanation,
         "teacher": {"name": load_persona()["name"], "feedback": t.feedback, "hint": t.hint, "encouragement": t.encouragement},
         "should_retry": runtime_should_retry(correct, body.attempt),  # Runtime decides, not the model
     }

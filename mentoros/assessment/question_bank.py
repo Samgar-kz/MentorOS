@@ -8,7 +8,9 @@ later (Psychometrics v5) and are intentionally absent here.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import random
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -32,19 +34,30 @@ class Question:
     script: str = ""       # spoken audio script (Listening); client speaks it, never shows it
 
     def public(self) -> dict:
-        """What the client may see — never the answer key. For Listening, ``script`` is
-        included so the browser can speak it (path A); it is played, not displayed."""
+        """What the client may see — never the answer key. Choices are shuffled
+        deterministically (see ``display_form``) so the correct option isn't always first.
+        For Listening, ``script`` is included so the browser can speak it (played, not shown)."""
         d = {
             "id": self.id,
             "skill": self.skill,
             "topic": self.topic,
             "cefr": self.cefr,
             "question": self.question,
-            "choices": list(self.choices),
+            "choices": display_form(self)[0],
         }
         if self.script:
             d["script"] = self.script
         return d
+
+
+def display_form(q: Question) -> tuple[list[str], int]:
+    """Deterministically shuffle a question's choices (seeded by its id) and report where
+    the correct answer landed. Same permutation every time, so the order is stable for the
+    student and reproducible at grading — fixes "the answer is always option A"."""
+    seed = int(hashlib.sha256(q.id.encode()).hexdigest(), 16) % (2**32)
+    order = list(range(len(q.choices)))
+    random.Random(seed).shuffle(order)
+    return [q.choices[i] for i in order], order.index(q.answer)
 
 
 def _validate(bank: tuple[Question, ...]) -> None:

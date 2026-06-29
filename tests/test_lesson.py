@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mentoros.api import app, get_store
-from mentoros.assessment.question_bank import by_id, load_bank, load_lesson_bank
+from mentoros.assessment.question_bank import by_id, display_form, load_bank, load_lesson_bank
 from mentoros.curriculum import load_curriculum
 from mentoros.events import EventStore
 from mentoros.knowledge import MASTERY_THRESHOLD, build_knowledge
@@ -77,7 +77,7 @@ def test_lesson_start_returns_steps_without_answer_keys(client):
 
 
 def test_lesson_run_feeds_knowledge_and_finishes(client):
-    answers = {q.id: q.answer for q in (LESSON_BANK + BANK)}  # served from either bank
+    answers = {q.id: display_form(q)[1] for q in (LESSON_BANK + BANK)}  # shuffled-correct index
     lesson = client.post("/lesson/start", json={"topic": "nouns_articles"}).json()["lesson"]
     answered = 0
     for s in lesson["steps"]:
