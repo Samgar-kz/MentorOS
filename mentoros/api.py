@@ -262,7 +262,7 @@ def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) ->
     from mentoros.curriculum import load_curriculum
     from mentoros.knowledge import build_knowledge
     from mentoros.lesson import build_lesson
-    from mentoros.assessment.question_bank import load_bank
+    from mentoros.assessment.question_bank import load_bank, load_lesson_bank
     from mentoros.planner import plan_today
 
     events = store.read_all()
@@ -275,7 +275,10 @@ def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) ->
         return {"lesson": None, "message": "Nothing to learn right now."}
 
     store.record(LESSON_STARTED, {"topic": topic})
-    lesson = build_lesson(topic, build_knowledge(events, curriculum), load_bank(), curriculum)
+    lesson = build_lesson(
+        topic, build_knowledge(events, curriculum),
+        load_lesson_bank(), curriculum, fallback_bank=load_bank(),  # practice bank, then assessment
+    )
     return {"lesson": lesson.to_dict()}
 
 
@@ -293,14 +296,14 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
     """Grade a lesson exercise server-side, record it as a fact (feeds Knowledge), then
     let the Teacher (LLM adapter) give feedback. The Runtime — not the model — decides
     whether to retry."""
-    from mentoros.assessment.question_bank import by_id, load_bank
+    from mentoros.assessment.question_bank import by_id, load_bank, load_lesson_bank
     from mentoros.assessment.session import grade
     from mentoros.curriculum import load_curriculum
     from mentoros.knowledge import build_knowledge
     from mentoros.teacher import TeacherContext, get_teacher, load_persona, runtime_should_retry
 
-    bank = load_bank()
-    q = by_id(bank).get(body.question)
+    # The question may come from the Lesson bank (practice) or the Assessment bank (fallback).
+    q = by_id(load_lesson_bank()).get(body.question) or by_id(load_bank()).get(body.question)
     if q is None:
         raise HTTPException(status_code=404, detail="unknown question")
     correct = grade(q, body.choice)

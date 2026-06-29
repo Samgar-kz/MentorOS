@@ -13,7 +13,9 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "assessment"
+_DATA = Path(__file__).resolve().parent.parent.parent / "data"
+DEFAULT_DIR = _DATA / "assessment"   # Assessment Content: few, high-quality items (measuring)
+LESSON_DIR = _DATA / "lessons"       # Lesson Content: many practice items (learning)
 
 
 @dataclass(frozen=True)
@@ -56,30 +58,43 @@ def _validate(bank: tuple[Question, ...]) -> None:
             raise ValueError(f"{q.id}: needs at least two choices")
 
 
+def _read_file(p: Path) -> list[Question]:
+    data = json.loads(p.read_text(encoding="utf-8"))
+    return [
+        Question(
+            id=q["id"],
+            skill=q.get("skill", "grammar"),
+            topic=q["topic"],
+            cefr=q["cefr"],
+            difficulty=float(q.get("difficulty", 0.5)),
+            question=q["question"],
+            choices=tuple(q["choices"]),
+            answer=int(q["answer"]),
+            explanation=q.get("explanation", ""),
+            script=q.get("script", ""),
+        )
+        for q in data["questions"]
+    ]
+
+
 @lru_cache(maxsize=None)
 def load_bank(path: str | None = None) -> tuple[Question, ...]:
-    """Load and validate the question bank (cached — static content). With no path,
-    merges every ``*.json`` under data/assessment/ (grammar + vocabulary + reading + …)."""
+    """The **Assessment** bank — few, high-quality items used to *measure* (the adaptive
+    test). With no path, merges every ``*.json`` under data/assessment/."""
     files = [Path(path)] if path else sorted(DEFAULT_DIR.glob("*.json"))
-    items: list[Question] = []
-    for p in files:
-        data = json.loads(p.read_text(encoding="utf-8"))
-        for q in data["questions"]:
-            items.append(
-                Question(
-                    id=q["id"],
-                    skill=q.get("skill", "grammar"),
-                    topic=q["topic"],
-                    cefr=q["cefr"],
-                    difficulty=float(q.get("difficulty", 0.5)),
-                    question=q["question"],
-                    choices=tuple(q["choices"]),
-                    answer=int(q["answer"]),
-                    explanation=q.get("explanation", ""),
-                    script=q.get("script", ""),
-                )
-            )
-    bank = tuple(items)
+    bank = tuple(q for p in files for q in _read_file(p))
+    _validate(bank)
+    return bank
+
+
+@lru_cache(maxsize=None)
+def load_lesson_bank() -> tuple[Question, ...]:
+    """The **Lesson** bank — many practice items used to *learn* (lessons), kept separate
+    from the assessment bank. May be empty/thin; lessons fall back to the assessment bank
+    for any topic the lesson bank doesn't cover yet."""
+    if not LESSON_DIR.exists():
+        return ()
+    bank = tuple(q for p in sorted(LESSON_DIR.glob("*.json")) for q in _read_file(p))
     _validate(bank)
     return bank
 

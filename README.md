@@ -120,6 +120,8 @@ services over the Event Store — never by rewriting the core.** Layers are gate
 - **🚧 Coach v4 (the other skills):** Reading · Listening · Speaking · Writing · Vocabulary — each on the same shape `events → knowledge → planner → teacher`.
 - **🚧 Psychometrics v5 (optional, data-permitting):** calibrate item difficulty/discrimination (real IRT) once enough data accrues; the system works without it.
 
+**Content is split by purpose (v3.1):** **Assessment Content** (`data/assessment/`) — few, high-quality items for *measuring*; **Lesson Content** (`data/lessons/`) — many practice items for *learning* (lessons fall back to the assessment bank for topics the practice bank doesn't cover yet). Both feed the same facts → Knowledge.
+
 CEFR is **only an outward label**: `Events → Knowledge Projection → CEFR Projection`,
 never the reverse. The LLM lives only in the Teacher seam — swapping OpenAI → Claude →
 anything else changes only that layer; memory, knowledge, plan and review are untouched.

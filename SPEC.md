@@ -102,7 +102,14 @@ Layer 4  Teacher (LLM)  taught the chosen topic; never decides what to learn
 ```
 
 Because the model is subject-agnostic, switching TOEFL → GRE → any subject changes
-only the curriculum graph and the question bank — not the core.
+only the curriculum graph and the question banks — not the core.
+
+**Two content banks (v3.1):** content is split by purpose. **Assessment Content**
+(`data/assessment/`) — few, high-quality items used to *measure* (the adaptive test).
+**Lesson Content** (`data/lessons/`) — many practice items used to *learn* (lessons).
+A lesson pulls from the Lesson bank and **falls back to the Assessment bank** for any
+topic not covered yet, so lessons never break while the practice bank grows. Both feed
+the same `grammar_question` facts → Knowledge (Rule 6).
 
 ## The Planner (V2) — four pure functions, not four modules
 

@@ -8,13 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mentoros.api import app, get_store
-from mentoros.assessment.question_bank import by_id, load_bank
+from mentoros.assessment.question_bank import by_id, load_bank, load_lesson_bank
 from mentoros.curriculum import load_curriculum
 from mentoros.events import EventStore
 from mentoros.knowledge import MASTERY_THRESHOLD, build_knowledge
 from mentoros.lesson import build_lesson
 
 BANK = load_bank()
+LESSON_BANK = load_lesson_bank()
 CUR = load_curriculum()
 EXERCISE = {"guided", "independent", "quiz"}
 
@@ -47,6 +48,17 @@ def test_build_lesson_is_deterministic():
     assert a.to_dict() == b.to_dict()
 
 
+def test_lesson_bank_is_separate_with_fallback():
+    assert any(q.topic == "nouns_articles" for q in LESSON_BANK)  # practice content exists
+    # a covered topic uses the Lesson bank (practice items), not the assessment items
+    covered = build_lesson("nouns_articles", build_knowledge([], CUR), LESSON_BANK, CUR, fallback_bank=BANK)
+    ex_ids = {s.question["id"] for s in covered.steps if s.kind in EXERCISE}
+    assert ex_ids and all(i.startswith("lp_") for i in ex_ids)
+    # an uncovered topic falls back to the assessment bank, so the lesson still has exercises
+    fell_back = build_lesson("inversion", build_knowledge([], CUR), LESSON_BANK, CUR, fallback_bank=BANK)
+    assert [s for s in fell_back.steps if s.kind in EXERCISE]
+
+
 # --- end-to-end API --------------------------------------------------------- #
 @pytest.fixture()
 def client(tmp_path):
@@ -65,7 +77,7 @@ def test_lesson_start_returns_steps_without_answer_keys(client):
 
 
 def test_lesson_run_feeds_knowledge_and_finishes(client):
-    answers = {q.id: q.answer for q in BANK}
+    answers = {q.id: q.answer for q in (LESSON_BANK + BANK)}  # served from either bank
     lesson = client.post("/lesson/start", json={"topic": "nouns_articles"}).json()["lesson"]
     answered = 0
     for s in lesson["steps"]:

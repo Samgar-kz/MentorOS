@@ -1,0 +1,20 @@
+{
+  "name": "Grammar practice (lesson content)",
+  "version": 1,
+  "note": "Lesson Content — practice items, separate from the (smaller, curated) assessment bank. Starter set; grows over time. Topics not covered here fall back to the assessment bank.",
+  "questions": [
+    { "id": "lp_art_01", "skill": "grammar", "topic": "nouns_articles", "cefr": "A2", "difficulty": 0.22, "question": "I'd like ___ orange, please.", "choices": ["a", "an", "the", "—"], "answer": 1, "explanation": "'orange' starts with a vowel sound → 'an'." },
+    { "id": "lp_art_02", "skill": "grammar", "topic": "nouns_articles", "cefr": "A2", "difficulty": 0.24, "question": "She is ___ engineer.", "choices": ["a", "an", "the", "—"], "answer": 1, "explanation": "'engineer' starts with a vowel sound → 'an'." },
+    { "id": "lp_art_03", "skill": "grammar", "topic": "nouns_articles", "cefr": "A2", "difficulty": 0.26, "question": "We live in ___ small village.", "choices": ["a", "an", "the", "—"], "answer": 0, "explanation": "Singular countable, first mention → 'a'." },
+    { "id": "lp_art_04", "skill": "grammar", "topic": "nouns_articles", "cefr": "B1", "difficulty": 0.44, "question": "Could you pass me ___ salt?", "choices": ["a", "an", "the", "some"], "answer": 2, "explanation": "Specific, shared context (the salt on the table) → 'the'." },
+    { "id": "lp_art_05", "skill": "grammar", "topic": "nouns_articles", "cefr": "B1", "difficulty": 0.40, "question": "He's reading ___ interesting book.", "choices": ["a", "an", "the", "—"], "answer": 1, "explanation": "'interesting' starts with a vowel sound → 'an'." },
+    { "id": "lp_art_06", "skill": "grammar", "topic": "nouns_articles", "cefr": "B1", "difficulty": 0.46, "question": "___ sun rises in the east.", "choices": ["The", "A", "An", "—"], "answer": 0, "explanation": "Unique thing → 'the sun'." },
+
+    { "id": "lp_psi_01", "skill": "grammar", "topic": "present_simple", "cefr": "A1", "difficulty": 0.16, "question": "My brother ___ football.", "choices": ["play", "plays", "playing", "played"], "answer": 1, "explanation": "Third person singular → 'plays'." },
+    { "id": "lp_psi_02", "skill": "grammar", "topic": "present_simple", "cefr": "A1", "difficulty": 0.16, "question": "We ___ coffee every morning.", "choices": ["drink", "drinks", "drinking", "drank"], "answer": 0, "explanation": "'We' takes the base form → 'drink'." },
+    { "id": "lp_psi_03", "skill": "grammar", "topic": "present_simple", "cefr": "A2", "difficulty": 0.30, "question": "___ they live near here?", "choices": ["Do", "Does", "Is", "Are"], "answer": 0, "explanation": "Question with 'they' → 'Do'." },
+    { "id": "lp_psi_04", "skill": "grammar", "topic": "present_simple", "cefr": "A2", "difficulty": 0.28, "question": "She ___ to music after work.", "choices": ["listens", "listen", "listening", "listened"], "answer": 0, "explanation": "Third person singular → 'listens'." },
+    { "id": "lp_psi_05", "skill": "grammar", "topic": "present_simple", "cefr": "A2", "difficulty": 0.32, "question": "It ___ a lot in winter.", "choices": ["snows", "snow", "snowing", "snowed"], "answer": 0, "explanation": "Third person singular general truth → 'snows'." },
+    { "id": "lp_psi_06", "skill": "grammar", "topic": "present_simple", "cefr": "A1", "difficulty": 0.18, "question": "I ___ tea, not coffee.", "choices": ["like", "likes", "liking", "liked"], "answer": 0, "explanation": "'I' takes the base form → 'like'." }
+  ]
+}

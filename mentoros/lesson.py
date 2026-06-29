@@ -69,14 +69,18 @@ def build_lesson(
     knowledge: dict[str, TopicKnowledge],
     bank: tuple[Question, ...],
     curriculum: Curriculum,
+    fallback_bank: tuple[Question, ...] = (),
 ) -> Lesson:
-    """Compose a linear lesson for one topic from computed state. Pure & deterministic."""
+    """Compose a linear lesson for one topic. ``bank`` is the Lesson Content (practice);
+    if it has nothing for this topic yet, fall back to the assessment bank. Pure."""
     topic = curriculum.by_id[topic_id]
     k = knowledge.get(topic_id)
     mastery = k.mastery if k else 0.5
     confidence = k.confidence if k else 0.0
 
     qs = sorted((q for q in bank if q.topic == topic_id), key=lambda q: q.difficulty)
+    if not qs and fallback_bank:
+        qs = sorted((q for q in fallback_bank if q.topic == topic_id), key=lambda q: q.difficulty)
     guided = qs[:GUIDED]
     independent = qs[GUIDED:GUIDED + INDEPENDENT]
     quiz = qs[GUIDED + INDEPENDENT:GUIDED + INDEPENDENT + QUIZ]

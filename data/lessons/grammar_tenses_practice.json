@@ -1,0 +1,27 @@
+{
+  "name": "Grammar tenses practice (lesson content)",
+  "version": 1,
+  "note": "Lesson Content (practice) for common tenses. AI-authored draft — human review needed.",
+  "questions": [
+    { "id": "lp_pst_01", "skill": "grammar", "topic": "past_simple", "cefr": "A1", "difficulty": 0.18, "question": "She ___ to the shop yesterday.", "choices": ["went", "go", "gone", "goes"], "answer": 0, "explanation": "Irregular past of 'go' is 'went'." },
+    { "id": "lp_pst_02", "skill": "grammar", "topic": "past_simple", "cefr": "A2", "difficulty": 0.28, "question": "They ___ a film last night.", "choices": ["watched", "watch", "watching", "watches"], "answer": 0, "explanation": "Regular past: watch + -ed." },
+    { "id": "lp_pst_03", "skill": "grammar", "topic": "past_simple", "cefr": "A2", "difficulty": 0.30, "question": "I ___ him at the party.", "choices": ["saw", "seen", "see", "sees"], "answer": 0, "explanation": "Irregular past of 'see' is 'saw'." },
+    { "id": "lp_pst_04", "skill": "grammar", "topic": "past_simple", "cefr": "A2", "difficulty": 0.30, "question": "We ___ dinner at eight.", "choices": ["had", "has", "have", "having"], "answer": 0, "explanation": "Past of 'have' is 'had'." },
+    { "id": "lp_pst_05", "skill": "grammar", "topic": "past_simple", "cefr": "A2", "difficulty": 0.40, "question": "___ you ___ the email?", "choices": ["Did / get", "Did / got", "Do / get", "Have / get"], "answer": 0, "explanation": "Past question: Did + subject + base form." },
+    { "id": "lp_pst_06", "skill": "grammar", "topic": "past_simple", "cefr": "A2", "difficulty": 0.32, "question": "He ___ the train this morning.", "choices": ["took", "take", "taken", "takes"], "answer": 0, "explanation": "Irregular past of 'take' is 'took'." },
+
+    { "id": "lp_pp_01", "skill": "grammar", "topic": "present_perfect", "cefr": "B1", "difficulty": 0.44, "question": "I ___ already ___ lunch.", "choices": ["have / eaten", "has / eaten", "did / eat", "have / ate"], "answer": 0, "explanation": "Present perfect: have + past participle (eaten)." },
+    { "id": "lp_pp_02", "skill": "grammar", "topic": "present_perfect", "cefr": "B1", "difficulty": 0.46, "question": "She ___ in Paris for two years.", "choices": ["has lived", "lived", "is living", "live"], "answer": 0, "explanation": "'For two years' up to now → present perfect." },
+    { "id": "lp_pp_03", "skill": "grammar", "topic": "present_perfect", "cefr": "B1", "difficulty": 0.46, "question": "___ you ___ your homework yet?", "choices": ["Have / done", "Did / do", "Have / did", "Do / done"], "answer": 0, "explanation": "'Yet' → present perfect; participle 'done'." },
+    { "id": "lp_pp_04", "skill": "grammar", "topic": "present_perfect", "cefr": "B2", "difficulty": 0.56, "question": "They ___ just ___.", "choices": ["have / arrived", "has / arrived", "did / arrive", "have / arriving"], "answer": 0, "explanation": "'Just' with a recent action → present perfect." },
+    { "id": "lp_pp_05", "skill": "grammar", "topic": "present_perfect", "cefr": "B1", "difficulty": 0.48, "question": "We ___ never ___ to Italy.", "choices": ["have / been", "has / been", "did / go", "have / gone"], "answer": 0, "explanation": "Experience: have been (to a place)." },
+    { "id": "lp_pp_06", "skill": "grammar", "topic": "present_perfect", "cefr": "B2", "difficulty": 0.56, "question": "He ___ his report yet.", "choices": ["hasn't finished", "didn't finish", "doesn't finish", "isn't finishing"], "answer": 0, "explanation": "'Yet' in negatives → present perfect (hasn't finished)." },
+
+    { "id": "lp_pco_01", "skill": "grammar", "topic": "present_continuous", "cefr": "A1", "difficulty": 0.22, "question": "She ___ dinner right now.", "choices": ["is cooking", "cooks", "cook", "cooked"], "answer": 0, "explanation": "'Right now' → is + -ing." },
+    { "id": "lp_pco_02", "skill": "grammar", "topic": "present_continuous", "cefr": "A2", "difficulty": 0.28, "question": "They ___ football at the moment.", "choices": ["are playing", "play", "plays", "played"], "answer": 0, "explanation": "'At the moment' → are + -ing." },
+    { "id": "lp_pco_03", "skill": "grammar", "topic": "present_continuous", "cefr": "A2", "difficulty": 0.28, "question": "I ___ a book now.", "choices": ["am reading", "read", "reads", "reading"], "answer": 0, "explanation": "'Now' → am + -ing." },
+    { "id": "lp_pco_04", "skill": "grammar", "topic": "present_continuous", "cefr": "A2", "difficulty": 0.38, "question": "Why ___ you ___?", "choices": ["are / crying", "do / cry", "is / crying", "are / cry"], "answer": 0, "explanation": "Continuous question: are + subject + -ing." },
+    { "id": "lp_pco_05", "skill": "grammar", "topic": "present_continuous", "cefr": "B1", "difficulty": 0.48, "question": "We ___ dinner with friends tonight.", "choices": ["are having", "have", "has", "had"], "answer": 0, "explanation": "Fixed future arrangement → present continuous." },
+    { "id": "lp_pco_06", "skill": "grammar", "topic": "present_continuous", "cefr": "A2", "difficulty": 0.34, "question": "Listen! Someone ___ the piano.", "choices": ["is playing", "plays", "play", "played"], "answer": 0, "explanation": "Happening now → is + -ing." }
+  ]
+}
