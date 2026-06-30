@@ -62,9 +62,14 @@ same history always yields the same profile (tested).
 One command — it bootstraps dependencies on first run, then starts both servers:
 
 ```bash
-make dev          # API → http://localhost:8000 (/docs) · web → http://localhost:3000
+make dev          # DEV mode (hot reload): API → http://localhost:8000 (/docs) · web → http://localhost:3000
+make start        # PRODUCTION mode (built web) — use this to actually use the app
 make seed         # load the academic word list into your local store (once)
 ```
+
+> **If clicking a link downloads `plan.html` / `assessment.html` instead of opening it**,
+> that's a `next dev` (RSC) quirk in some browsers — run **`make start`** (production build)
+> and it navigates normally. Not a code bug; only the run mode differs.
 
 <details><summary>…or run the pieces by hand</summary>
 
