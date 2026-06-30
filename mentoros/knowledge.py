@@ -3,7 +3,7 @@
 For every topic we compute TWO numbers, never stored, always folded from events:
 
   - **mastery**    — how well the student knows it   (Beta-Binomial posterior mean)
-  - **confidence** — how sure *we* are of that mastery (1 - posterior_std / prior_std)
+  - **confidence** — how sure *we* are of that mastery (1 - width of the 90% credible interval)
 
 These are different on purpose. A couple of right answers give HIGH mastery but LOW
 confidence (tiny sample). Many answers narrow the interval, so confidence rises —
@@ -31,20 +31,84 @@ MASTERY_THRESHOLD = 0.75
 CONFIDENCE_THRESHOLD = 0.6
 # A CEFR band counts as reached when this fraction of topics up to it are known.
 CEFR_REACHED_FRACTION = 0.8
+# Forgetting curve: evidence loses half its weight every this many days without revisiting.
+FORGET_HALF_LIFE_DAYS = 30.0
 
-_PRIOR_STD = math.sqrt(
-    (PRIOR_ALPHA * PRIOR_BETA)
-    / ((PRIOR_ALPHA + PRIOR_BETA) ** 2 * (PRIOR_ALPHA + PRIOR_BETA + 1))
-)
+def _betacf(a: float, b: float, x: float) -> float:
+    """Continued fraction for the incomplete beta function (Lentz's method)."""
+    maxit, eps, fpmin = 200, 1e-9, 1e-30
+    qab, qap, qam = a + b, a + 1.0, a - 1.0
+    c = 1.0
+    d = 1.0 - qab * x / qap
+    if abs(d) < fpmin:
+        d = fpmin
+    d = 1.0 / d
+    h = d
+    for m in range(1, maxit + 1):
+        m2 = 2 * m
+        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        h *= d * c
+        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
+        d = 1.0 + aa * d
+        if abs(d) < fpmin:
+            d = fpmin
+        c = 1.0 + aa / c
+        if abs(c) < fpmin:
+            c = fpmin
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+        if abs(delta - 1.0) < eps:
+            break
+    return h
 
 
-def _beta_stats(successes: float, failures: float) -> tuple[float, float]:
-    """Posterior mean and standard deviation of Beta(α₀+s, β₀+f)."""
+def betainc(a: float, b: float, x: float) -> float:
+    """Regularized incomplete beta I_x(a,b) = P(Beta(a,b) <= x). Pure Python, no deps."""
+    if x <= 0.0:
+        return 0.0
+    if x >= 1.0:
+        return 1.0
+    ln_bt = (
+        math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
+        + a * math.log(x) + b * math.log(1.0 - x)
+    )
+    bt = math.exp(ln_bt)
+    if x < (a + 1.0) / (a + b + 2.0):
+        return bt * _betacf(a, b, x) / a
+    return 1.0 - bt * _betacf(b, a, 1.0 - x) / b
+
+
+def _beta_quantile(p: float, a: float, b: float) -> float:
+    """Inverse CDF of Beta(a,b) by bisection."""
+    lo, hi = 0.0, 1.0
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        if betainc(a, b, mid) < p:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def _mean_and_confidence(successes: float, failures: float) -> tuple[float, float]:
+    """Posterior mean (mastery) and certainty = 1 − width of the 90% credible interval of
+    Beta(α₀+s, β₀+f). An honest interval, not the old hand-tuned std ratio: narrow
+    interval → high confidence, regardless of whether mastery is high or low."""
     a = PRIOR_ALPHA + successes
     b = PRIOR_BETA + failures
     mean = a / (a + b)
-    std = math.sqrt((a * b) / ((a + b) ** 2 * (a + b + 1)))
-    return mean, std
+    if successes == 0 and failures == 0:
+        return mean, 0.0  # no evidence -> no certainty
+    width = _beta_quantile(0.95, a, b) - _beta_quantile(0.05, a, b)
+    return mean, max(0.0, min(1.0, 1.0 - width))
 
 
 @dataclass
@@ -63,22 +127,29 @@ class TopicKnowledge:
 
 
 def build_knowledge(
-    events: list[Event], curriculum: Curriculum
+    events: list[Event], curriculum: Curriculum, now: float | None = None
 ) -> dict[str, TopicKnowledge]:
-    """Fold answers + placements into per-topic (mastery, confidence). Pure & deterministic."""
+    """Fold answers + placements into per-topic (mastery, confidence). Pure & deterministic.
+
+    With ``now`` given, older evidence is down-weighted by a forgetting curve (half-life
+    ``FORGET_HALF_LIFE_DAYS``): a topic answered correctly long ago but not revisited
+    slowly reverts toward the prior — mastery fades and the topic resurfaces. With
+    ``now=None`` there is no decay (core unit tests use the undecayed form)."""
     succ = {t.id: 0.0 for t in curriculum.topics}
     fail = {t.id: 0.0 for t in curriculum.topics}
     n = {t.id: 0 for t in curriculum.topics}
     correct = {t.id: 0 for t in curriculum.topics}
     last_seen: dict[str, float | None] = {t.id: None for t in curriculum.topics}
+    half_life = FORGET_HALF_LIFE_DAYS * 86400.0
 
     for e in sorted(events, key=lambda e: (e.ts, e.id)):
+        w = 0.5 ** (max(0.0, now - e.ts) / half_life) if now is not None else 1.0
         if e.type == GRAMMAR_QUESTION:
             topic = e.payload.get("topic")
             if topic in succ:
                 ok = bool(e.payload.get("correct", False))
-                succ[topic] += 1.0 if ok else 0.0
-                fail[topic] += 0.0 if ok else 1.0
+                succ[topic] += w if ok else 0.0
+                fail[topic] += 0.0 if ok else w
                 n[topic] += 1
                 correct[topic] += int(ok)
                 last_seen[topic] = e.ts
@@ -87,14 +158,13 @@ def build_knowledge(
             if topic in succ:
                 # Knowing a topic implies knowing its foundations.
                 for tid in curriculum.with_prerequisites(topic):
-                    succ[tid] += PLACEMENT_PSEUDO
+                    succ[tid] += PLACEMENT_PSEUDO * w
                     if last_seen[tid] is None:
                         last_seen[tid] = e.ts
 
     out: dict[str, TopicKnowledge] = {}
     for t in curriculum.topics:
-        mean, std = _beta_stats(succ[t.id], fail[t.id])
-        confidence = max(0.0, min(1.0, 1.0 - std / _PRIOR_STD))
+        mean, confidence = _mean_and_confidence(succ[t.id], fail[t.id])
         known = mean >= MASTERY_THRESHOLD and confidence >= CONFIDENCE_THRESHOLD
         out[t.id] = TopicKnowledge(
             topic=t.id,

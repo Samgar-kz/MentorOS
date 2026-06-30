@@ -116,8 +116,9 @@ def states_from_knowledge(
 def build_topic_states(
     events: list[Event], curriculum: Curriculum, now: float | None = None
 ) -> dict[str, TopicState]:
-    """Per-topic status, computed from the Knowledge Projection. Pure & deterministic."""
-    return states_from_knowledge(build_knowledge(events, curriculum), curriculum)
+    """Per-topic status, computed from the Knowledge Projection. Pure & deterministic.
+    Passing ``now`` applies the forgetting curve (stale topics fade)."""
+    return states_from_knowledge(build_knowledge(events, curriculum, now), curriculum)
 
 
 _SKILL_PREF = {"grammar": 0, "vocabulary": 1, "reading": 2, "listening": 3}
@@ -202,7 +203,7 @@ def plan_today(
     profile = build_profile(events, now=now)
     level = assess(profile)
     queue = build_review_queue(profile.vocabulary, now)
-    knowledge = build_knowledge(events, curriculum)
+    knowledge = build_knowledge(events, curriculum, now)  # apply forgetting curve
     states = states_from_knowledge(knowledge, curriculum)
     onboarded = is_onboarded(events)
     cefr_level = estimate_cefr(knowledge, curriculum)  # CEFR is a projection, not stored

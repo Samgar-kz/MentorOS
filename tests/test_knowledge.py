@@ -83,6 +83,18 @@ def test_placement_is_overridden_by_real_wrong_answers():
     assert k.known is False              # self-correcting: real failures pull it back
 
 
+def test_forgetting_curve_fades_old_mastery():
+    day = 86400.0
+    events = answers("a", 12, 0, start=0)  # learned well, long ago (no revisits since)
+    fresh = build_knowledge(events, GRAPH, now=12)         # just learned -> known
+    stale = build_knowledge(events, GRAPH, now=150 * day)  # months later, untouched
+    assert fresh["a"].known is True
+    assert stale["a"].known is False                       # mastery faded -> resurfaces
+    assert stale["a"].mastery < fresh["a"].mastery
+    # no decay when now is omitted (core unit tests rely on this)
+    assert build_knowledge(events, GRAPH)["a"].known is True
+
+
 def test_estimate_cefr_is_a_projection():
     assert estimate_cefr(build_knowledge([], GRAPH), GRAPH) is None
     # Know a (A1) and b (A2) -> A2 reached; c (B1) still unknown.

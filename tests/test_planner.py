@@ -24,7 +24,7 @@ from mentoros.planner import (
     plan_today,
 )
 
-NOW = 1_000_000.0
+NOW = 1000.0  # close to the synthetic event timestamps, so the forgetting curve is a no-op here
 
 
 def ev(type, payload, ts):

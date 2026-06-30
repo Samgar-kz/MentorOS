@@ -9,6 +9,8 @@ until they lock. So a single run concentrates on the student's level and a level
 
 from __future__ import annotations
 
+import math
+
 from mentoros.assessment.question_bank import Question
 from mentoros.assessment.stop import CONFIDENCE_STOP
 from mentoros.curriculum import CEFR_ORDER
@@ -18,6 +20,7 @@ from mentoros.knowledge import TopicKnowledge
 START_THETA = 2.0     # begin at B1 (rank 2) — the middle of the scale
 NEAR_BAND = 1.0       # only ask questions within this many CEFR levels of θ
 REVIEW_BONUS = 0.3
+_ABILITY_STEP = 1.0   # base learning rate (in CEFR levels) for the θ update
 
 _RANK_TO_LEVEL = {v: k for k, v in CEFR_ORDER.items()}
 
@@ -29,22 +32,29 @@ def _rank(cefr: str) -> int:
 def estimate_theta(
     events: list[Event], bank: tuple[Question, ...], skill: str | None = None
 ) -> float:
-    """Ability on the CEFR scale (0=A1 .. 5=C2) from answered questions — an up/down
-    staircase with a shrinking step, so it converges to the student's level. With a
-    ``skill`` it estimates that skill alone (each skill is measured separately)."""
+    """Ability θ on the CEFR scale (0=A1 .. 5=C2), calibrated to item difficulty.
+
+    Online Rasch/Elo update: for each answered item of difficulty d, the expected chance
+    of a correct answer is ``p = 1/(1+exp(-(θ-d)))``; θ moves by ``k*(correct-p)`` with a
+    step that shrinks as evidence accrues. So a *correct easy* item barely raises θ, a
+    *correct hard* item raises it, and a *wrong easy* item drops it sharply — θ converges
+    to the level where the student is ~50%, instead of shooting to the ceiling on a streak
+    of easy wins. (The old blind ±step staircase overestimated level — see code review.)"""
     by = {q.id: q for q in bank}
     theta = START_THETA
-    i = 0
+    n = 0
     for e in sorted(events, key=lambda e: (e.ts, e.id)):
         if e.type != GRAMMAR_QUESTION:
             continue
         q = by.get(e.payload.get("question"))
         if q is None or (skill is not None and q.skill != skill):
             continue
-        step = max(0.4, 1.5 / (1 + 0.4 * i))
-        theta += step if bool(e.payload.get("correct")) else -step
-        theta = max(0.0, min(5.0, theta))
-        i += 1
+        d = _rank(q.cefr)
+        p = 1.0 / (1.0 + math.exp(-(theta - d)))           # expected P(correct) | ability vs difficulty
+        observed = 1.0 if bool(e.payload.get("correct")) else 0.0
+        k = max(0.3, _ABILITY_STEP / (1.0 + 0.3 * n))      # learning rate decays with evidence
+        theta = max(0.0, min(5.0, theta + k * (observed - p)))
+        n += 1
     return theta
 
 

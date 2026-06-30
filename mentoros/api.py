@@ -10,6 +10,7 @@ Run: ``uvicorn mentoros.api:app --reload`` (install with ``pip install 'mentoros
 from __future__ import annotations
 
 import os
+import time
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -185,7 +186,7 @@ def topics(store: EventStore = Depends(get_store)) -> dict:
     from mentoros.curriculum import load_curriculum
     from mentoros.planner import build_topic_states
 
-    states = build_topic_states(store.read_all(), load_curriculum())
+    states = build_topic_states(store.read_all(), load_curriculum(), now=time.time())
     return {"topics": [asdict(s) for s in states.values()]}
 
 
@@ -197,7 +198,7 @@ def knowledge(store: EventStore = Depends(get_store)) -> dict:
     from mentoros.knowledge import build_knowledge, estimate_cefr
 
     curriculum = load_curriculum()
-    k = build_knowledge(store.read_all(), curriculum)
+    k = build_knowledge(store.read_all(), curriculum, now=time.time())
     return {"cefr": estimate_cefr(k, curriculum), "topics": [v.to_dict() for v in k.values()]}
 
 
@@ -281,7 +282,7 @@ def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) ->
 
     store.record(LESSON_STARTED, {"topic": topic})
     lesson = build_lesson(
-        topic, build_knowledge(events, curriculum),
+        topic, build_knowledge(events, curriculum, now=time.time()),
         load_lesson_bank(), curriculum, fallback_bank=load_bank(),  # practice bank, then assessment
     )
     return {"lesson": lesson.to_dict()}
@@ -318,7 +319,7 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
     )
 
     curriculum = load_curriculum()
-    knowledge = build_knowledge(store.read_all(), curriculum)
+    knowledge = build_knowledge(store.read_all(), curriculum, now=time.time())
     topic = curriculum.by_id[q.topic]
     k = knowledge.get(q.topic)
     shown, answer_idx = display_form(q)  # the (shuffled) options the student actually saw
@@ -348,7 +349,7 @@ def lesson_explain(body: LessonExplainIn, store: EventStore = Depends(get_store)
     curriculum = load_curriculum()
     if body.topic not in curriculum.by_id:
         raise HTTPException(status_code=404, detail="unknown topic")
-    knowledge = build_knowledge(store.read_all(), curriculum)
+    knowledge = build_knowledge(store.read_all(), curriculum, now=time.time())
     topic = curriculum.by_id[body.topic]
     k = knowledge.get(body.topic)
     ctx = TeacherContext(
@@ -368,7 +369,7 @@ def lesson_finish(body: LessonFinishIn, store: EventStore = Depends(get_store)) 
 
     store.record(LESSON_FINISHED, {"topic": body.topic})
     curriculum = load_curriculum()
-    k = build_knowledge(store.read_all(), curriculum).get(body.topic)
+    k = build_knowledge(store.read_all(), curriculum, now=time.time()).get(body.topic)
     return {"topic": body.topic, "knowledge": k.to_dict() if k else None}
 
 
@@ -391,7 +392,7 @@ def placement(body: PlacementIn, store: EventStore = Depends(get_store)) -> dict
     store.record(ASSESSMENT_COMPLETED, {})
 
     # The level shown back is a *projection* of the resulting knowledge (Knowledge -> CEFR).
-    cefr = estimate_cefr(build_knowledge(store.read_all(), curriculum), curriculum)
+    cefr = estimate_cefr(build_knowledge(store.read_all(), curriculum, now=time.time()), curriculum)
     return {"known_levels": sorted(known), "placed": [t.id for t in passed], "level": cefr or "A1"}
 
 
