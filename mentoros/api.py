@@ -257,6 +257,7 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
             if t.level_rank < target:
                 store.record(PLACEMENT_PASSED, {"topic": t.id})
         store.record(ASSESSMENT_COMPLETED, {})
+        step = next_step(store.read_all(), curriculum, bank)  # reflect placement → real overall CEFR
 
     return {"correct": correct, "answer": display_form(q)[1], "explanation": q.explanation, **step.to_dict()}
 
