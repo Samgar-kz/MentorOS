@@ -155,6 +155,22 @@ def test_day1_onboarding_is_grammar_and_vocab_only(client):
     assert plan["cefr_level"] is not None  # all correct -> locks a level (placement on finish)
 
 
+def test_high_onboarding_does_not_start_at_the_bottom(client):
+    # A strong student (all correct) must not be sent to A2 lessons in untested skills,
+    # and the overall level is capped at the curriculum ceiling (no phantom C2).
+    answers = {q.id: display_form(q)[1] for q in BANK}
+    s = client.post("/assessment/start").json()
+    seen = 0
+    while not s["done"] and seen < 60:
+        qid = s["question"]["id"]
+        r = client.post("/assessment/answer", json={"question": qid, "choice": answers[qid]}).json()
+        s = {"done": r["done"], "question": r["question"]}
+        seen += 1
+    plan = client.get("/plan").json()
+    assert all(CEFR_ORDER[f["level"]] >= CEFR_ORDER["B1"] for f in plan["focus"])  # near level, not the floor
+    assert plan["cefr_level"] in ("B2", "C1")  # sensible & capped (not A2, not C2)
+
+
 def test_wrong_answers_narrow_down_to_a1(client):
     s = client.post("/assessment/start").json()
     last = None

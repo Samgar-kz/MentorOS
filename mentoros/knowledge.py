@@ -115,8 +115,11 @@ def estimate_cefr(
     """The overall CEFR level — a *projection* of the knowledge graph, never stored.
     The highest band where enough topics up to it are known (or None if not even A1)."""
     known_ids = {k.topic for k in knowledge.values() if k.known}
+    max_rank = max((t.level_rank for t in curriculum.topics), default=0)  # don't report above what exists
     best: str | None = None
     for level in sorted(CEFR_ORDER, key=lambda lv: CEFR_ORDER[lv]):
+        if CEFR_ORDER[level] > max_rank:
+            continue  # no topics at this level (e.g. no C2 content) -> never report it
         upto = [t for t in curriculum.topics if t.level_rank <= CEFR_ORDER[level]]
         if not upto:
             continue

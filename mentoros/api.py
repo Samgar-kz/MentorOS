@@ -244,12 +244,16 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
         from mentoros.assessment.adaptive import ONBOARDING_SKILLS, bank_cap, skills_in
         from mentoros.assessment.selector import estimate_theta
 
-        # Only the onboarding skills were tested — place just those (others come via lessons).
-        # Cap each target at the bank's ceiling so we never place above what was tested.
+        # Tested skills are placed at their own level. Skills NOT tested in onboarding
+        # (Reading/Listening) get a prior = the overall tested level, so a C1 student isn't
+        # dropped into A2 lessons; real lesson answers correct it later (Rule 6). The bank
+        # ceiling cap keeps each skill's top topic available (still assessed via lessons).
         tested = [s for s in skills_in(bank) if s in ONBOARDING_SKILLS]
         targets = {s: min(round(estimate_theta(events, bank, s)), bank_cap(bank, s)) for s in tested}
+        overall = round(sum(targets.values()) / len(targets)) if targets else 0
         for t in curriculum.topics:
-            if t.level_rank < targets.get(t.skill, 0):
+            target = min(targets.get(t.skill, overall), bank_cap(bank, t.skill))
+            if t.level_rank < target:
                 store.record(PLACEMENT_PASSED, {"topic": t.id})
         store.record(ASSESSMENT_COMPLETED, {})
 
