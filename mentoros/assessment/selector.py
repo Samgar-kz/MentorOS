@@ -10,6 +10,7 @@ until they lock. So a single run concentrates on the student's level and a level
 from __future__ import annotations
 
 import math
+import random
 
 from mentoros.assessment.question_bank import Question
 from mentoros.assessment.stop import CONFIDENCE_STOP
@@ -59,9 +60,27 @@ def estimate_theta(
 
 
 def level_for_theta(theta: float, cap_rank: int = 5) -> str:
-    """CEFR label for an ability estimate, capped so we never report a level above what
-    the bank can actually test (e.g. no C2 items -> never report C2)."""
-    return _RANK_TO_LEVEL[max(0, min(cap_rank, round(theta)))]
+    """CEFR label for an ability estimate. FLOOR, not round: θ converges to the ~50%
+    point which sits between the student's band and the next, so rounding inflated the
+    label (a true-B2 with θ 3.55 was shown C1). Capped at what the bank can test."""
+    return _RANK_TO_LEVEL[max(0, min(cap_rank, math.floor(theta)))]
+
+
+def theta_se(events: list[Event], bank: tuple[Question, ...], skill: str, theta: float) -> float:
+    """Standard error of the θ estimate (Rasch/Fisher information): SE = 1/sqrt(Σ p(1-p))
+    over the answered items of this skill. Small SE = we're confident about the level, so
+    the test can stop — this is what makes the length adaptive (stop when sure), not fixed."""
+    by = {q.id: q for q in bank}
+    info = 0.0
+    for e in events:
+        if e.type != GRAMMAR_QUESTION:
+            continue
+        q = by.get(e.payload.get("question"))
+        if q is None or q.skill != skill:
+            continue
+        p = 1.0 / (1.0 + math.exp(-(theta - _rank(q.cefr))))
+        info += p * (1.0 - p)
+    return float("inf") if info <= 0.0 else 1.0 / math.sqrt(info)
 
 
 def select_next(
@@ -75,8 +94,7 @@ def select_next(
     """The most informative unasked question near θ (within ``skill`` if given), or None
     once that band is settled."""
     review = set(review_topics)
-    best: Question | None = None
-    best_key = None
+    scored: list[tuple[float, Question]] = []
     for q in bank:
         if q.id in asked_ids:
             continue
@@ -90,10 +108,11 @@ def select_next(
             continue  # too far from the estimated level to be informative right now
         uncertainty = 1.0 - (k.confidence if k else 0.0)
         review_priority = REVIEW_BONUS if q.topic in review else 0.0
-        score = -dist + uncertainty + review_priority
-        seen = k.sample_size if k else 0
-        key = (score, -seen, -q.difficulty, q.id)
-        if best_key is None or key > best_key:
-            best_key = key
-            best = q
-    return best
+        scored.append((-dist + uncertainty + review_priority, q))
+    if not scored:
+        return None
+    # Pick randomly among the near-best so two runs aren't identical (variety without
+    # losing the "near the level" guarantee). Honesty is unaffected — items are curated.
+    top = max(s for s, _ in scored)
+    pool = [q for s, q in scored if s >= top - 0.15]
+    return random.choice(pool)

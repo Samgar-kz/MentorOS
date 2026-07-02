@@ -54,6 +54,11 @@ directly from Rules 1 + 3 (the level is a forever-recomputed projection of all e
 but is named because it is the product stance that sets MentorOS apart: you take the
 test every day without noticing.
 
+*Corollary — forgetting prioritizes, never demotes.* Old evidence decays (half-life
+~30 days), but decay only decides **what to resurface for review**; the student's rank
+(CEFR, mastered/locked statuses) is computed from undecayed knowledge. Taking a
+two-week break surfaces "Review: Articles" — it never downgrades you to A1.
+
 ---
 
 ## Architecture (target)

@@ -33,6 +33,9 @@ CONFIDENCE_THRESHOLD = 0.6
 CEFR_REACHED_FRACTION = 0.8
 # Forgetting curve: evidence loses half its weight every this many days without revisiting.
 FORGET_HALF_LIFE_DAYS = 30.0
+# A repeat answer to the SAME question is weak evidence (it measures memory of the item,
+# not knowledge of the topic) — retries and re-runs of a small bank must not inflate mastery.
+REPEAT_WEIGHT = 0.3
 
 def _betacf(a: float, b: float, x: float) -> float:
     """Continued fraction for the incomplete beta function (Lentz's method)."""
@@ -142,23 +145,32 @@ def build_knowledge(
     last_seen: dict[str, float | None] = {t.id: None for t in curriculum.topics}
     half_life = FORGET_HALF_LIFE_DAYS * 86400.0
 
+    seen_qids: set[str] = set()
     for e in sorted(events, key=lambda e: (e.ts, e.id)):
         w = 0.5 ** (max(0.0, now - e.ts) / half_life) if now is not None else 1.0
         if e.type == GRAMMAR_QUESTION:
             topic = e.payload.get("topic")
             if topic in succ:
                 ok = bool(e.payload.get("correct", False))
-                succ[topic] += w if ok else 0.0
-                fail[topic] += 0.0 if ok else w
+                # Re-answering a known item (retry after a hint, re-running a small bank)
+                # is weak evidence — down-weight it so mastery can't be farmed.
+                qid = e.payload.get("question")
+                rw = REPEAT_WEIGHT if (qid and qid in seen_qids) else 1.0
+                if qid:
+                    seen_qids.add(qid)
+                succ[topic] += rw * w if ok else 0.0
+                fail[topic] += 0.0 if ok else rw * w
                 n[topic] += 1
                 correct[topic] += int(ok)
                 last_seen[topic] = e.ts
         elif e.type == PLACEMENT_PASSED:
             topic = e.payload.get("topic")
             if topic in succ:
-                # Knowing a topic implies knowing its foundations.
+                # Knowing a topic implies knowing its foundations. Placement is
+                # IDEMPOTENT (max, not +=): many placed topics sharing a prerequisite
+                # must not pile up pseudo-evidence that real answers can't overturn.
                 for tid in curriculum.with_prerequisites(topic):
-                    succ[tid] += PLACEMENT_PSEUDO * w
+                    succ[tid] = max(succ[tid], PLACEMENT_PSEUDO * w)
                     if last_seen[tid] is None:
                         last_seen[tid] = e.ts
 

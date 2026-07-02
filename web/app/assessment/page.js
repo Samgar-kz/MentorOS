@@ -130,11 +130,11 @@ export default function Assessment() {
         <div style={{ margin: "20px 0" }}>
           <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 24 }}>
             <div style={{ textAlign: "center", marginBottom: 14 }}>
-              <div style={{ color: "#999", fontSize: 13 }}>Your CEFR level</div>
-              <div style={{ fontSize: 46, fontWeight: 800 }}>{step.cefr || "—"}</div>
-              {!step.cefr && (
-                <div style={{ color: "#888", fontSize: 12 }}>keep practicing to lock a level</div>
-              )}
+              <div style={{ color: "#999", fontSize: 13 }}>Your CEFR level (test estimate)</div>
+              <div style={{ fontSize: 46, fontWeight: 800 }}>{step.overall || "—"}</div>
+              <div style={{ color: "#888", fontSize: 12 }}>
+                confirmed by mastered topics so far: {step.cefr || "—"} — lessons will close the gap
+              </div>
             </div>
             <div style={{ color: "#999", fontSize: 13, textAlign: "center" }}>By skill</div>
             <div style={{ display: "flex", justifyContent: "center", gap: 18, flexWrap: "wrap", margin: "10px 0" }}>

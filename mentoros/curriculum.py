@@ -10,13 +10,17 @@ computed, never written at runtime. The planner reads it; it is the *map*, not t
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 CEFR_ORDER = {"A1": 0, "A2": 1, "B1": 2, "B2": 3, "C1": 4, "C2": 5}
 
-DEFAULT_DIR = Path(__file__).resolve().parent.parent / "data" / "curriculum"
+# MENTOROS_DATA overrides the data root for non-editable installs (the repo's data/
+# folder is not shipped inside the wheel).
+_DATA_ROOT = Path(os.environ.get("MENTOROS_DATA", Path(__file__).resolve().parent.parent / "data"))
+DEFAULT_DIR = _DATA_ROOT / "curriculum"
 
 
 @dataclass(frozen=True)

@@ -22,7 +22,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-_PERSONA_PATH = Path(__file__).resolve().parent.parent / "data" / "teacher" / "persona.json"
+_PERSONA_PATH = (
+    Path(os.environ.get("MENTOROS_DATA", Path(__file__).resolve().parent.parent / "data"))
+    / "teacher" / "persona.json"
+)
 
 MAX_RETRIES = 1  # Runtime rule: at most one retry per exercise, then move on
 
@@ -64,11 +67,25 @@ class TeacherResponse:
         return asdict(self)
 
 
+@dataclass
+class GeneratedExercise:
+    """One LLM-authored practice item. Because the *model* claims the answer key, this is
+    hypothesis-grade content (Rule 4): it lives in Layer B and its outcomes never become
+    ``grammar_question`` facts — generated practice adds variety, not measurement."""
+
+    question: str
+    choices: list[str]
+    answer: int
+    explanation: str = ""
+
+
 @runtime_checkable
 class TeacherAdapter(Protocol):
     name: str
 
     def teach(self, ctx: TeacherContext) -> TeacherResponse: ...
+
+    def generate_exercise(self, ctx: TeacherContext) -> GeneratedExercise | None: ...
 
 
 # --- Adapters --------------------------------------------------------------- #
@@ -90,6 +107,9 @@ class StubTeacher:
             )
         # explanation step (no answer yet)
         return TeacherResponse(f"Let's work on {ctx.topic_title}. Read the example, then try a question.")
+
+    def generate_exercise(self, ctx: TeacherContext) -> GeneratedExercise | None:
+        return None  # offline: no generation — lessons keep using the curated banks
 
 
 def _persona_system() -> str:
@@ -145,6 +165,41 @@ class OpenAITeacher:
             encouragement=str(d.get("encouragement", "")),
             should_retry=bool(d.get("should_retry", False)),
         )
+
+    def generate_exercise(self, ctx: TeacherContext) -> GeneratedExercise | None:
+        """Author ONE fresh multiple-choice practice item for the current topic. Fails
+        soft (None) on any malformed output — the lesson then just uses the banks."""
+        from openai import OpenAI  # lazy
+
+        weak = ", ".join(ctx.weak_areas) or "none noted"
+        user = (
+            f"Create ONE new multiple-choice practice exercise for the topic "
+            f"'{ctx.topic_title}' at CEFR level {ctx.level}. Student mastery: {ctx.mastery:.2f}; "
+            f"weak areas: {weak}. It must NOT repeat a textbook classic verbatim.\n"
+            'Return ONLY JSON: {"question": "...", "choices": ["...", "...", "...", "..."], '
+            '"answer": <index of the correct choice>, "explanation": "..."} — exactly one '
+            "correct choice, plausible distractors, one sentence of explanation."
+        )
+        client = OpenAI()
+        completion = client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "system", "content": _persona_system()}, {"role": "user", "content": user}],
+            response_format={"type": "json_object"},
+        )
+        try:
+            d = json.loads(completion.choices[0].message.content or "{}")
+            choices = [str(c) for c in d["choices"]]
+            answer = int(d["answer"])
+            if len(choices) < 2 or not (0 <= answer < len(choices)) or not d.get("question"):
+                return None
+            return GeneratedExercise(
+                question=str(d["question"]),
+                choices=choices,
+                answer=answer,
+                explanation=str(d.get("explanation", "")),
+            )
+        except (KeyError, ValueError, TypeError, json.JSONDecodeError):
+            return None
 
 
 def get_teacher() -> TeacherAdapter:

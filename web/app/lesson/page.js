@@ -22,6 +22,9 @@ export default function LessonPage() {
   const [empty, setEmpty] = useState(false);
   const [attempt, setAttempt] = useState(1);          // which try (Runtime caps retries)
   const [teacherExplain, setTeacherExplain] = useState(null); // LLM-narrated explanation
+  const [extra, setExtra] = useState(null);           // AI-generated practice item
+  const [extraFeedback, setExtraFeedback] = useState(null);
+  const [extraNote, setExtraNote] = useState(null);
 
   const start = useCallback(async () => {
     setI(0); setFeedback(null); setResult(null); setError(null); setEmpty(false);
@@ -68,6 +71,34 @@ export default function LessonPage() {
   function retry() {
     setFeedback(null);
     setAttempt((a) => a + 1);  // same question, next try
+  }
+
+  async function fetchExtra() {
+    setExtraFeedback(null);
+    setExtraNote(null);
+    setBusy(true);
+    try {
+      const d = await fetch(`${API}/lesson/extra`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: lesson.topic }),
+      }).then((r) => r.json());
+      if (d.exercise) setExtra(d.exercise);
+      else setExtraNote(d.message || "AI practice unavailable.");
+    } catch (e) {
+      setExtraNote(`Can't reach the API at ${API}.`);
+    } finally { setBusy(false); }
+  }
+
+  async function answerExtra(choice) {
+    if (busy || extraFeedback) return;
+    setBusy(true);
+    try {
+      const r = await fetch(`${API}/lesson/extra/answer`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: extra.id, choice }),
+      }).then((r) => r.json());
+      setExtraFeedback({ ...r, choice });
+    } finally { setBusy(false); }
   }
 
   async function finish() {
@@ -205,10 +236,50 @@ export default function LessonPage() {
             · confidence {Math.round(lesson.confidence * 100)}% → <strong>{Math.round(result.confidence * 100)}%</strong>
             {result.known && <span style={{ color: "#0a7" }}> · mastered</span>}
           </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16 }}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>
             <Link href="/plan" style={{ ...btn("#0a7"), textDecoration: "none" }}>Today&apos;s plan →</Link>
             <button onClick={start} style={btn("#06c")}>Next lesson</button>
+            <button onClick={fetchExtra} disabled={busy} style={{ ...btn("#444") }}>Extra practice (AI)</button>
           </div>
+
+          {extraNote && <p style={{ color: "#888", fontSize: 13, marginTop: 10 }}>{extraNote}</p>}
+
+          {extra && (
+            <div style={{ textAlign: "left", border: "1px solid #eee", borderRadius: 12, padding: 16, marginTop: 16 }}>
+              <div style={{ color: "#999", fontSize: 12, marginBottom: 6 }}>
+                ✨ AI practice — for variety; doesn&apos;t change your measured level
+              </div>
+              <div style={{ fontSize: 16, marginBottom: 10 }}>{extra.question}</div>
+              {extra.choices.map((c, idx) => {
+                const isAns = extraFeedback && idx === extraFeedback.answer;
+                const isWrong = extraFeedback && idx === extraFeedback.choice && !extraFeedback.correct;
+                return (
+                  <button key={idx} onClick={() => answerExtra(idx)} disabled={busy || !!extraFeedback}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left", margin: "5px 0", padding: "9px 11px",
+                      borderRadius: 8, fontSize: 14, cursor: extraFeedback ? "default" : "pointer",
+                      border: `1px solid ${isAns ? "#0a7" : isWrong ? "#c33" : "#ddd"}`,
+                      background: isAns ? "#e6f7ef" : isWrong ? "#fdeaea" : "#fff",
+                    }}>
+                    {c}
+                  </button>
+                );
+              })}
+              {extraFeedback && (
+                <div style={{ marginTop: 8 }}>
+                  <span style={{ color: extraFeedback.correct ? "#0a7" : "#c33", fontWeight: 600 }}>
+                    {extraFeedback.correct ? "Correct ✓" : "Not quite ✗"}
+                  </span>
+                  {extraFeedback.explanation && (
+                    <div style={{ color: "#555", fontSize: 13, marginTop: 4 }}>{extraFeedback.explanation}</div>
+                  )}
+                  <button onClick={fetchExtra} disabled={busy} style={{ ...btn("#06c"), marginTop: 10 }}>
+                    Another one →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </main>

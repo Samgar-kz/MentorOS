@@ -77,13 +77,37 @@ def test_chat_routes_fact_to_log_and_hypothesis_to_layer_b(setup):
 
     r = client.post("/chat", json={"message": "I don't get inversion"}).json()
     assert r["response"] == "Let's practice inversion."
-    assert len(r["recorded_facts"]) == 1
-    assert len(r["hypotheses"]) == 1
+    # Rule 4 hardening: the MODEL judged correctness with no verifiable reference
+    # (no bank question id + choice) — the claim is demoted to a hypothesis.
+    assert r["recorded_facts"] == []
+    assert len(r["hypotheses"]) == 2
 
-    log_types = [e.type for e in store.read_all()]
-    assert "grammar_question" in log_types       # fact appended to the event log
-    assert "hypothesis" not in log_types         # hypothesis NEVER in the deterministic log
-    assert any(e.type == "hypothesis" for e in hyp.read_all())  # it lives in Layer B
+    assert store.read_all() == []                # the deterministic log is untouched
+    assert len(hyp.read_all()) == 2              # both live in Layer B
+
+
+def test_chat_verifiable_fact_is_regraded_by_the_server(setup):
+    from mentoros.assessment.question_bank import display_form, load_bank
+
+    make, store, _ = setup
+    q = load_bank()[0]
+    correct_idx = display_form(q)[1]
+    wrong = (correct_idx + 1) % len(q.choices)
+    # The model LIES that the student was correct — but it references a bank item and
+    # the student's choice, so the server re-grades and records the truth.
+    result = AIResult("ok", [{
+        "type": "grammar_question",
+        "payload": {"topic": "whatever-the-model-says", "correct": True,
+                    "question": q.id, "choice": wrong},
+    }])
+    client = make(FakeTutor(result))
+
+    r = client.post("/chat", json={"message": "quiz me"}).json()
+    assert len(r["recorded_facts"]) == 1
+    fact = store.read_all()[0]
+    assert fact.payload["correct"] is False      # the server's grade, not the model's claim
+    assert fact.payload["topic"] == q.topic      # the bank's topic, not the model's claim
+    assert fact.payload["verified"] is True
 
 
 def test_chat_stub_tutor_records_nothing(setup):
@@ -95,15 +119,18 @@ def test_chat_stub_tutor_records_nothing(setup):
     assert store.read_all() == []  # the model changed no facts
 
 
-def test_chat_word_answered_fact_updates_profile(setup):
-    make, store, _ = setup
+def test_chat_model_claimed_word_answer_never_updates_profile(setup):
+    # The model saying "the student answered 'maintain' correctly" is its own judgement —
+    # unverifiable by the server, so it must NOT touch the profile (Rule 4).
+    make, store, hyp = setup
     store.record("word_added", {"word": "maintain", "meaning": "keep", "difficulty": 1})
     result = AIResult("ok", [{"type": "word_answered", "payload": {"word": "maintain", "correct": True}}])
     client = make(FakeTutor(result))
     client.post("/chat", json={"message": "test me on maintain"})
     prof = build_profile(store.read_all())
     w = prof.vocabulary[0]
-    assert w.word == "maintain" and w.answers == 1 and w.correct == 1
+    assert w.word == "maintain" and w.answers == 0        # profile unchanged
+    assert any(e.type == "word_answered" for e in hyp.read_all())  # claim parked in Layer B
 
 
 # --- generic /events -------------------------------------------------------- #

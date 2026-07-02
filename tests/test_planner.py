@@ -169,6 +169,18 @@ def test_placement_by_level_starts_plan_above_a1():
     assert any(f["level"] == "B1" for f in plan.focus)
 
 
+# --- forgetting = prioritization, never demotion ----------------------------- #
+def test_fading_topic_resurfaces_without_demotion():
+    day = 86400.0
+    plan = plan_today([placed("a", 0)], GRAPH, now=200 * day)  # placed long ago, no visits
+    # rank is NOT demoted by the break...
+    assert plan.topics_mastered == 1
+    assert plan.cefr_level == "A1"
+    # ...but the stale topic leads the queue as a review
+    assert plan.focus[0]["id"] == "a" and plan.focus[0]["status"] == "fading"
+    assert plan.next_action["detail"].startswith("Review")
+
+
 # --- onboarding gate -------------------------------------------------------- #
 def test_new_student_is_not_onboarded():
     plan = plan_today([], GRAPH, now=NOW)

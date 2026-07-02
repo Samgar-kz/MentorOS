@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-_DATA = Path(__file__).resolve().parent.parent.parent / "data"
+# MENTOROS_DATA overrides the data root for non-editable installs.
+_DATA = Path(os.environ.get("MENTOROS_DATA", Path(__file__).resolve().parent.parent.parent / "data"))
 DEFAULT_DIR = _DATA / "assessment"   # Assessment Content: few, high-quality items (measuring)
 LESSON_DIR = _DATA / "lessons"       # Lesson Content: many practice items (learning)
 

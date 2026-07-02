@@ -36,7 +36,10 @@ SYSTEM = (
     'with an objective outcome, e.g. {"type":"grammar_question","payload":{"topic":'
     '"inversion","correct":true}}, or a HYPOTHESIS (a guess about the student), e.g. '
     '{"type":"hypothesis","payload":{"note":"may struggle with inversion"}}. Only '
-    "assert a FACT when the outcome is objectively known from the exchange."
+    "assert a FACT when the outcome is objectively known from the exchange. NOTE: the "
+    "server independently re-grades facts — a grammar_question is accepted as a fact only "
+    "when it references a bank question id and the student's choice; anything else you "
+    "propose is treated as a hypothesis."
 )
 
 

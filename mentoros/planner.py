@@ -14,9 +14,8 @@ but because it never existed as stored state.
 from __future__ import annotations
 
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
-from mentoros.assess import LevelEstimate, assess
 from mentoros.curriculum import CEFR_ORDER, Curriculum, load_curriculum
 from mentoros.events import ASSESSMENT_COMPLETED, Event
 from mentoros.knowledge import TopicKnowledge, build_knowledge, estimate_cefr
@@ -29,6 +28,7 @@ STATUS_LOCKED = "locked"        # a prerequisite is not mastered yet
 STATUS_AVAILABLE = "available"  # unlocked, not started
 STATUS_LEARNING = "learning"    # unlocked, in progress, not mastered
 STATUS_MASTERED = "mastered"
+STATUS_FADING = "fading"        # mastered, but unrevisited so long it needs review
 
 _LEARNABLE = (STATUS_LEARNING, STATUS_AVAILABLE)
 _FOCUS_RANK = {STATUS_LEARNING: 0, STATUS_AVAILABLE: 1}
@@ -62,8 +62,7 @@ class Action:
 class Plan:
     generated_ts: float
     onboarded: bool                      # has the student completed the level check?
-    cefr_level: str | None               # CEFR level from the latest assessment (or None)
-    level: dict                          # assess().to_dict() (vocabulary)
+    cefr_level: str | None               # confirmed CEFR (projection of mastered topics)
     review_due: int
     review_words: list[str]
     focus: list[dict]                    # next learnable topics (TopicState dicts)
@@ -162,7 +161,11 @@ def next_action(review_due: int, focus: list[TopicState]) -> Action:
         return Action("review", f"Review {review_due} due word{s}", count=review_due)
     if focus:
         top = focus[0]
-        verb = "Continue" if top.status == STATUS_LEARNING else "Start"
+        verb = (
+            "Review" if top.status == STATUS_FADING
+            else "Continue" if top.status == STATUS_LEARNING
+            else "Start"
+        )
         return Action("learn", f"{verb}: {top.title} ({top.level})", topic_id=top.id)
     return Action("done", "All caught up — add new words or material.")
 
@@ -171,19 +174,21 @@ def build_plan(
     curriculum: Curriculum,
     states: dict[str, TopicState],
     queue: list[WordState],
-    level: LevelEstimate,
     now: float,
     onboarded: bool = False,
     cefr_level: str | None = None,
+    fading: tuple[str, ...] = (),
 ) -> Plan:
-    """Assemble today's plan from the computed pieces. Pure: no I/O, no stored state."""
-    focus = focus_topics(curriculum, states)
+    """Assemble today's plan from the computed pieces. Pure: no I/O, no stored state.
+    ``fading`` topics (mastered but stale) lead the focus list — forgetting drives the
+    QUEUE, never the student's rank."""
+    focus = [replace(states[t], status=STATUS_FADING) for t in fading if t in states]
+    focus += focus_topics(curriculum, states)
     action = next_action(len(queue), focus)
     return Plan(
         generated_ts=now,
         onboarded=onboarded,
         cefr_level=cefr_level,
-        level=level.to_dict(),
         review_due=len(queue),
         review_words=[w.word for w in queue[:8]],
         focus=[asdict(s) for s in focus[:FOCUS_LIMIT]],
@@ -201,10 +206,14 @@ def plan_today(
     now = time.time() if now is None else now
     curriculum = curriculum or load_curriculum()
     profile = build_profile(events, now=now)
-    level = assess(profile)
     queue = build_review_queue(profile.vocabulary, now)
-    knowledge = build_knowledge(events, curriculum, now)  # apply forgetting curve
+    # Rank, statuses and CEFR come from UNDECAYED knowledge — a break never demotes the
+    # student. The forgetting curve only PRIORITIZES: topics whose fresh (decayed)
+    # knowledge has faded are resurfaced for review at the head of the focus list.
+    knowledge = build_knowledge(events, curriculum)
+    decayed = build_knowledge(events, curriculum, now)
     states = states_from_knowledge(knowledge, curriculum)
+    fading = tuple(tid for tid, k in knowledge.items() if k.known and not decayed[tid].known)
     onboarded = is_onboarded(events)
     cefr_level = estimate_cefr(knowledge, curriculum)  # CEFR is a projection, not stored
-    return build_plan(curriculum, states, queue, level, now, onboarded, cefr_level)
+    return build_plan(curriculum, states, queue, now, onboarded, cefr_level, fading)

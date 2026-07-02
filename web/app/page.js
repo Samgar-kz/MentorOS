@@ -60,7 +60,7 @@ export default function Home() {
       <p style={{ color: "#666", marginTop: -8 }}>The next most useful step, today.</p>
       <div style={{ display: "flex", gap: 8, margin: "12px 0 20px", flexWrap: "wrap" }}>
         <Link href="/plan" style={navBtn("#0a7")}>Today&apos;s plan</Link>
-        <Link href="/placement" style={navBtn("#444")}>Check your level</Link>
+        <Link href="/assessment" style={navBtn("#444")}>Check your level</Link>
         <Link href="/chat" style={navBtn("#06c")}>Chat with tutor</Link>
       </div>
 

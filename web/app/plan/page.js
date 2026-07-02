@@ -75,9 +75,6 @@ export default function Plan() {
           <Link href="/assessment" style={{ ...btn("#06c"), textDecoration: "none", display: "inline-block" }}>
             Check my level →
           </Link>
-          <span style={{ fontSize: 13, color: "#888", marginLeft: 10 }}>
-            or <Link href="/placement" style={{ color: "#06c" }}>quick self-report</Link>
-          </span>
         </div>
       )}
 
@@ -150,9 +147,9 @@ export default function Plan() {
 
           {/* Footer stats */}
           <p style={{ color: "#888", fontSize: 13, marginTop: 20 }}>
-            Level: <strong>{plan.cefr_level || "—"}</strong> · Grammar:{" "}
+            Confirmed level: <strong>{plan.cefr_level || "—"}</strong> · Grammar:{" "}
             {plan.topics_mastered}/{plan.topics_total} mastered · {plan.review_due} words due ·{" "}
-            <Link href="/placement" style={{ color: "#06c" }}>re-check level</Link>
+            <Link href="/assessment" style={{ color: "#06c" }}>re-take the test</Link>
           </p>
         </>
       )}

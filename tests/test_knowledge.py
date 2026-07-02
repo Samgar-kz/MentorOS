@@ -83,6 +83,28 @@ def test_placement_is_overridden_by_real_wrong_answers():
     assert k.known is False              # self-correcting: real failures pull it back
 
 
+def test_placement_is_idempotent_not_compounding():
+    # b and c both require a: two placements must NOT pile 2×PLACEMENT_PSEUDO onto a.
+    one = build_knowledge([ev(PLACEMENT_PASSED, {"topic": "b"}, 1)], GRAPH)["a"]
+    two = build_knowledge(
+        [ev(PLACEMENT_PASSED, {"topic": "b"}, 1), ev(PLACEMENT_PASSED, {"topic": "c"}, 2)], GRAPH
+    )["a"]
+    assert two.mastery == one.mastery  # max, not += — a few real wrongs can still overturn it
+
+
+def test_repeat_answers_carry_less_weight():
+    def ans_q(qid, ts):
+        return Event(GRAMMAR_QUESTION, {"topic": "a", "correct": True, "question": qid}, float(ts), f"e{ts}")
+
+    distinct = [ans_q(f"q{i}", i + 1) for i in range(6)]
+    farmed = [ans_q("q0", i + 1) for i in range(6)]  # same item over and over
+    kd = build_knowledge(distinct, GRAPH)["a"]
+    kf = build_knowledge(farmed, GRAPH)["a"]
+    assert kd.known is True
+    assert kf.confidence < kd.confidence
+    assert kf.known is False  # re-answering one memorized item can't farm mastery
+
+
 def test_forgetting_curve_fades_old_mastery():
     day = 86400.0
     events = answers("a", 12, 0, start=0)  # learned well, long ago (no revisits since)

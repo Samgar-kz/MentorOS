@@ -10,7 +10,6 @@ Run: ``uvicorn mentoros.api:app --reload`` (install with ``pip install 'mentoros
 from __future__ import annotations
 
 import os
-import time
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -118,6 +117,15 @@ class LessonExplainIn(BaseModel):
     topic: str
 
 
+class LessonExtraIn(BaseModel):
+    topic: str
+
+
+class LessonExtraAnswerIn(BaseModel):
+    id: str
+    choice: int
+
+
 class LessonFinishIn(BaseModel):
     topic: str
 
@@ -162,14 +170,6 @@ def review(store: EventStore = Depends(get_store)) -> dict:
     return {"count": len(queue), "queue": [_word_dict(w) for w in queue]}
 
 
-@app.get("/level")
-def level(store: EventStore = Depends(get_store)) -> dict:
-    """Computed level estimate (Rule 5: projected from answers, never stored)."""
-    from mentoros.assess import assess
-
-    return assess(build_profile(store.read_all())).to_dict()
-
-
 @app.get("/plan")
 def plan(store: EventStore = Depends(get_store)) -> dict:
     """Today's plan — recomputed from events + the curriculum graph (Rule 5)."""
@@ -186,7 +186,7 @@ def topics(store: EventStore = Depends(get_store)) -> dict:
     from mentoros.curriculum import load_curriculum
     from mentoros.planner import build_topic_states
 
-    states = build_topic_states(store.read_all(), load_curriculum(), now=time.time())
+    states = build_topic_states(store.read_all(), load_curriculum())
     return {"topics": [asdict(s) for s in states.values()]}
 
 
@@ -198,7 +198,7 @@ def knowledge(store: EventStore = Depends(get_store)) -> dict:
     from mentoros.knowledge import build_knowledge, estimate_cefr
 
     curriculum = load_curriculum()
-    k = build_knowledge(store.read_all(), curriculum, now=time.time())
+    k = build_knowledge(store.read_all(), curriculum)
     return {"cefr": estimate_cefr(k, curriculum), "topics": [v.to_dict() for v in k.values()]}
 
 
@@ -250,7 +250,8 @@ def assessment_answer(body: AssessmentAnswerIn, store: EventStore = Depends(get_
         # dropped into A2 lessons; real lesson answers correct it later (Rule 6). The bank
         # ceiling cap keeps each skill's top topic available (still assessed via lessons).
         tested = [s for s in skills_in(bank) if s in ONBOARDING_SKILLS]
-        targets = {s: min(round(estimate_theta(events, bank, s)), bank_cap(bank, s)) for s in tested}
+        # floor (like the label): the confirmed level must never exceed the working one
+        targets = {s: min(int(estimate_theta(events, bank, s)), bank_cap(bank, s)) for s in tested}
         overall = round(sum(targets.values()) / len(targets)) if targets else 0
         for t in curriculum.topics:
             target = min(targets.get(t.skill, overall), bank_cap(bank, t.skill))
@@ -283,7 +284,7 @@ def lesson_start(body: LessonStartIn, store: EventStore = Depends(get_store)) ->
 
     store.record(LESSON_STARTED, {"topic": topic})
     lesson = build_lesson(
-        topic, build_knowledge(events, curriculum, now=time.time()),
+        topic, build_knowledge(events, curriculum),
         load_lesson_bank(), curriculum, fallback_bank=load_bank(),  # practice bank, then assessment
     )
     return {"lesson": lesson.to_dict()}
@@ -316,11 +317,12 @@ def lesson_answer(body: LessonAnswerIn, store: EventStore = Depends(get_store)) 
     correct = grade(q, body.choice)
     store.record(
         GRAMMAR_QUESTION,
-        {"topic": q.topic, "correct": correct, "question": q.id, "latency": body.latency, "source": "lesson"},
+        {"topic": q.topic, "correct": correct, "question": q.id, "latency": body.latency,
+         "attempt": body.attempt, "source": "lesson"},
     )
 
     curriculum = load_curriculum()
-    knowledge = build_knowledge(store.read_all(), curriculum, now=time.time())
+    knowledge = build_knowledge(store.read_all(), curriculum)
     topic = curriculum.by_id[q.topic]
     k = knowledge.get(q.topic)
     shown, answer_idx = display_form(q)  # the (shuffled) options the student actually saw
@@ -350,7 +352,7 @@ def lesson_explain(body: LessonExplainIn, store: EventStore = Depends(get_store)
     curriculum = load_curriculum()
     if body.topic not in curriculum.by_id:
         raise HTTPException(status_code=404, detail="unknown topic")
-    knowledge = build_knowledge(store.read_all(), curriculum, now=time.time())
+    knowledge = build_knowledge(store.read_all(), curriculum)
     topic = curriculum.by_id[body.topic]
     k = knowledge.get(body.topic)
     ctx = TeacherContext(
@@ -359,6 +361,71 @@ def lesson_explain(body: LessonExplainIn, store: EventStore = Depends(get_store)
     )
     t = get_teacher().teach(ctx)
     return {"teacher": {"name": load_persona()["name"], "feedback": t.feedback, "hint": t.hint, "encouragement": t.encouragement}}
+
+
+@app.post("/lesson/extra")
+def lesson_extra(
+    body: LessonExtraIn,
+    store: EventStore = Depends(get_store),
+    hyp_store: EventStore = Depends(get_hyp_store),
+) -> dict:
+    """LLM-generated extra practice. The model AUTHORS the item, so it is hypothesis-grade
+    content (Rule 4): the exercise and its outcomes live in Layer B and never become
+    grammar_question facts — variety for practice, not measurement."""
+    import random as _random
+
+    from mentoros.curriculum import load_curriculum
+    from mentoros.knowledge import build_knowledge
+    from mentoros.teacher import TeacherContext, get_teacher
+
+    curriculum = load_curriculum()
+    if body.topic not in curriculum.by_id:
+        raise HTTPException(status_code=404, detail="unknown topic")
+    knowledge = build_knowledge(store.read_all(), curriculum)
+    topic = curriculum.by_id[body.topic]
+    k = knowledge.get(body.topic)
+    ex = get_teacher().generate_exercise(
+        TeacherContext(
+            topic_title=topic.title, level=topic.level, mastery=(k.mastery if k else 0.5),
+            weak_areas=_weak_areas(knowledge, curriculum, topic.skill), step_kind="independent",
+        )
+    )
+    if ex is None:
+        return {"exercise": None, "message": "AI practice needs OPENAI_API_KEY (offline stub can't generate)."}
+
+    # Shuffle server-side so the model's answer position carries no signal.
+    order = list(range(len(ex.choices)))
+    _random.shuffle(order)
+    choices = [ex.choices[i] for i in order]
+    answer = order.index(ex.answer)
+    e = hyp_store.record(
+        "generated_exercise",
+        {"topic": body.topic, "question": ex.question, "choices": choices,
+         "answer": answer, "explanation": ex.explanation},
+    )
+    return {"exercise": {"id": e.id, "topic": body.topic, "question": ex.question, "choices": choices}}
+
+
+@app.post("/lesson/extra/answer")
+def lesson_extra_answer(
+    body: LessonExtraAnswerIn, hyp_store: EventStore = Depends(get_hyp_store)
+) -> dict:
+    """Grade a generated exercise (server-side, from Layer B) and record the outcome as a
+    hypothesis — it never enters the fact log."""
+    item = next(
+        (e for e in hyp_store.read_all() if e.type == "generated_exercise" and e.id == body.id),
+        None,
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="unknown exercise")
+    correct = body.choice == item.payload["answer"]
+    hyp_store.record(
+        "hypothesis",
+        {"kind": "generated_practice", "topic": item.payload["topic"],
+         "exercise": body.id, "correct": correct},
+    )
+    return {"correct": correct, "answer": item.payload["answer"],
+            "explanation": item.payload.get("explanation", "")}
 
 
 @app.post("/lesson/finish")
@@ -370,7 +437,7 @@ def lesson_finish(body: LessonFinishIn, store: EventStore = Depends(get_store)) 
 
     store.record(LESSON_FINISHED, {"topic": body.topic})
     curriculum = load_curriculum()
-    k = build_knowledge(store.read_all(), curriculum, now=time.time()).get(body.topic)
+    k = build_knowledge(store.read_all(), curriculum).get(body.topic)
     return {"topic": body.topic, "knowledge": k.to_dict() if k else None}
 
 
@@ -393,7 +460,7 @@ def placement(body: PlacementIn, store: EventStore = Depends(get_store)) -> dict
     store.record(ASSESSMENT_COMPLETED, {})
 
     # The level shown back is a *projection* of the resulting knowledge (Knowledge -> CEFR).
-    cefr = estimate_cefr(build_knowledge(store.read_all(), curriculum, now=time.time()), curriculum)
+    cefr = estimate_cefr(build_knowledge(store.read_all(), curriculum), curriculum)
     return {"known_levels": sorted(known), "placed": [t.id for t in passed], "level": cefr or "A1"}
 
 
@@ -454,14 +521,35 @@ def chat(
     )
 
     facts, hypotheses = writeback(result.events)
+
+    # Rule 4 hardening: in free chat the MODEL judges correctness, so a proposed "fact"
+    # enters the log only if the server can re-grade it itself — a bank question id plus
+    # the student's choice. The server's grade overrides whatever the model claimed;
+    # everything else stays a hypothesis, however confident the model sounded.
+    from mentoros.assessment.question_bank import by_id, load_bank
+    from mentoros.assessment.session import grade
+
+    bankmap = by_id(load_bank())
+    verified: list[dict] = []
     for f in facts:
-        store.record(f["type"], f["payload"])           # objective -> Layer A
+        p = dict(f.get("payload", {}))
+        q = bankmap.get(p.get("question"))
+        if f["type"] == GRAMMAR_QUESTION and q is not None and isinstance(p.get("choice"), int):
+            p["topic"] = q.topic                 # the bank, not the model, says what was tested
+            p["correct"] = grade(q, p["choice"])  # the server, not the model, grades it
+            p["verified"] = True
+            verified.append({"type": f["type"], "payload": p})
+        else:
+            hypotheses.append(f)
+
+    for f in verified:
+        store.record(f["type"], f["payload"])           # server-verified -> Layer A
     for h in hypotheses:
         hyp_store.record(h.get("type", "hypothesis"), h.get("payload", h))  # guess -> Layer B
 
     return {
         "response": result.response,
         "tutor": getattr(tutor, "name", "?"),
-        "recorded_facts": facts,
+        "recorded_facts": verified,
         "hypotheses": hypotheses,
     }
